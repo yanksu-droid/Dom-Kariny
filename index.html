@@ -192,8 +192,14 @@ button {
   border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
+}
+
+.tab > span:last-child {
+  max-width: 100%;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 .tab.is-active {
@@ -533,20 +539,42 @@ button {
 
 .cleaning-preview-list {
   display: grid;
-  gap: 6px;
+  gap: 1px;
   max-height: 190px;
   margin-top: 10px;
   overflow: auto;
-}
-
-.cleaning-preview-list span {
-  padding: 8px 10px;
+  background: var(--line);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+.cleaning-preview-check {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
   background: var(--surface);
   color: var(--ink);
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.cleaning-preview-check input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--primary);
+}
+
+.cleaning-preview-check.is-done {
+  color: #8a969d;
+  background: #f3f6f6;
+}
+
+.cleaning-preview-check.is-done span {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
 }
 
 .cleaning-preview p {
@@ -887,6 +915,10 @@ button {
     box-shadow: none;
   }
 
+  .tab {
+    font-size: 0.72rem;
+  }
+
   .summary-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -933,7 +965,7 @@ button {
         </button>
         <button class="tab" type="button" data-view="sprzatanie" aria-label="Sprzątanie">
           <span class="tab-icon" data-icon="cleaning"></span>
-          <span>Sprząt.</span>
+          <span>Sprzątanie</span>
         </button>
         <button class="tab" type="button" data-view="finanse" aria-label="Kwoty i zakupy">
           <span class="tab-icon" data-icon="wallet"></span>
@@ -1376,6 +1408,7 @@ function normalizeState(input) {
     status: normalizeStatus(entry.status),
     tasks: normalizeTasks(entry.tasks),
     cleaningTasks: normalizeCleaningSelection(entry.cleaningTasks || entry.cleaning || []),
+    cleaningDone: normalizeCleaningDone(entry.cleaningDone || [], entry.cleaningTasks || entry.cleaning || []),
     recipeName: entry.recipeName || "",
     meal: entry.meal || "",
     shopping: entry.shopping || "",
@@ -1401,6 +1434,11 @@ function normalizeTaskCatalog(tasks) {
 
 function normalizeCleaningSelection(tasks) {
   return [...new Set((tasks || []).map((task) => String(task || "").trim()).filter(Boolean))];
+}
+
+function normalizeCleaningDone(done, selectedTasks = []) {
+  const selected = new Set(normalizeCleaningSelection(selectedTasks));
+  return normalizeCleaningSelection(done).filter((task) => selected.has(task));
 }
 
 function normalizeCleaningCatalog(tasks) {
@@ -1527,6 +1565,7 @@ function createSeedState() {
     status: "",
     tasks: ["", "", "", ""],
     cleaningTasks: [],
+    cleaningDone: [],
     recipeName: "",
     meal: "",
     shopping: "",
@@ -1557,6 +1596,7 @@ function createSeedState() {
       "Obiad (schab w sosie z porem i marchewką)",
     ],
     cleaningTasks: ["Umycie blatów i zlewu", "Odkurzenie całego domu", "Umycie podłogi w całym domu"],
+    cleaningDone: [],
     recipeName: "Schab w sosie z porem i marchewką",
     meal: "Według zakładki Menu",
   });
@@ -1592,6 +1632,7 @@ function patchEntry(entries, date, patch) {
   Object.assign(entry, patch);
   entry.tasks = normalizeTasks(entry.tasks);
   entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks);
+  entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
 }
 
 function buildDays(startDate, count) {
@@ -1736,18 +1777,31 @@ function renderTelefon() {
 }
 
 function renderCleaningDayPreview(entry) {
-  const tasks = normalizeCleaningSelection(entry.cleaningTasks || []);
+  const dayEntry = getEntry(entry.date || selectedDate);
+  const tasks = normalizeCleaningSelection(dayEntry.cleaningTasks || []);
+  const done = new Set(normalizeCleaningDone(dayEntry.cleaningDone || [], tasks));
   const showEmpty = isCleaningPlanned(entry);
   if (!tasks.length && !showEmpty) return "";
   return `
     <div class="cleaning-preview">
       <div class="cleaning-preview-head">
         <button class="recipe-name-link" type="button" data-open-cleaning>${tasks.length ? "Zakres sprzątania" : "Ustaw zakres sprzątania"}</button>
-        <span class="chip">${tasks.length} czynności</span>
+        <span class="chip">${done.size}/${tasks.length} zrobione</span>
       </div>
       ${
         tasks.length
-          ? `<div class="cleaning-preview-list">${tasks.map((task) => `<span>${escapeHtml(task)}</span>`).join("")}</div>`
+          ? `<div class="cleaning-preview-list" role="group" aria-label="Zakres sprzątania na ${escapeAttr(longDate(dayEntry.date))}">
+              ${tasks
+                .map(
+                  (task) => `
+                    <label class="cleaning-preview-check ${done.has(task) ? "is-done" : ""}">
+                      <input type="checkbox" data-cleaning-done="${escapeAttr(task)}" ${done.has(task) ? "checked" : ""} />
+                      <span>${escapeHtml(task)}</span>
+                    </label>
+                  `,
+                )
+                .join("")}
+            </div>`
           : '<p>Ten dzień wygląda na sprzątanie, ale zakres nie jest jeszcze skonfigurowany.</p>'
       }
     </div>
@@ -1919,6 +1973,7 @@ function renderRecipeCard(recipe) {
 function renderSprzatanie() {
   const entry = getEntry(selectedDate);
   const selected = new Set(normalizeCleaningSelection(entry.cleaningTasks || []));
+  const done = new Set(normalizeCleaningDone(entry.cleaningDone || [], [...selected]));
   const groups = groupCleaningTasks(state.settings.cleaningTasks);
   const groupNames = groups.map(([group]) => group);
   return `
@@ -1933,9 +1988,9 @@ function renderSprzatanie() {
     </section>
     ${renderSummary([
       ["Wybrane", String(selected.size)],
+      ["Wykonane", `${done.size}/${selected.size}`],
       ["Typ dnia", escapeHtml(entry.type || "Brak")],
       ["Status", escapeHtml(entry.status || "Brak")],
-      ["Godziny", formatHours(entryHours(entry))],
     ])}
     <section class="cleaning-panel">
       <header>
@@ -2222,6 +2277,23 @@ function bindCleaningControls(root) {
         tasks.delete(task);
       }
       entry.cleaningTasks = [...tasks].sort((a, b) => a.localeCompare(b, "pl"));
+      entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
+      saveState();
+      render();
+    });
+  });
+
+  root.querySelectorAll("[data-cleaning-done]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const entry = getEntry(selectedDate);
+      const done = new Set(normalizeCleaningDone(entry.cleaningDone || [], entry.cleaningTasks || []));
+      const task = checkbox.dataset.cleaningDone || "";
+      if (checkbox.checked) {
+        done.add(task);
+      } else {
+        done.delete(task);
+      }
+      entry.cleaningDone = normalizeCleaningDone([...done], entry.cleaningTasks || []);
       saveState();
       render();
     });
@@ -2230,6 +2302,7 @@ function bindCleaningControls(root) {
   root.querySelector("[data-clear-cleaning]")?.addEventListener("click", () => {
     const entry = getEntry(selectedDate);
     entry.cleaningTasks = [];
+    entry.cleaningDone = [];
     saveState();
     render();
   });
@@ -2257,6 +2330,7 @@ function bindCloneControls(root) {
     entry.date = selectedDate;
     entry.tasks = normalizeTasks(entry.tasks);
     entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks);
+    entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
     saveState({ immediate: true });
     render();
   });
@@ -2362,6 +2436,7 @@ function renderScheduleList(entries, query = "") {
       entry.status,
       entry.tasks.join(" "),
       (entry.cleaningTasks || []).join(" "),
+      (entry.cleaningDone || []).join(" "),
       entry.recipeName,
       entry.meal,
       entry.shopping,
@@ -2379,6 +2454,7 @@ function renderScheduleCard(entry) {
   const totals = entryTotals(entry);
   const tasks = entry.tasks.filter(Boolean);
   const cleaning = normalizeCleaningSelection(entry.cleaningTasks || []);
+  const cleaningDone = normalizeCleaningDone(entry.cleaningDone || [], cleaning);
   return `
     <article class="list-card">
       <header>
@@ -2393,7 +2469,7 @@ function renderScheduleCard(entry) {
         <span class="chip">${money(totals.workPay)}</span>
         ${entry.start && entry.end ? `<span class="chip">${escapeHtml(entry.start)}-${escapeHtml(entry.end)}</span>` : ""}
         ${entry.recipeName ? `<span class="chip">${escapeHtml(entry.recipeName)}</span>` : ""}
-        ${cleaning.length ? `<span class="chip">${cleaning.length} sprząt.</span>` : ""}
+        ${cleaning.length ? `<span class="chip">${cleaningDone.length}/${cleaning.length} sprząt.</span>` : ""}
       </div>
       ${tasks.length ? `<p>${escapeHtml(tasks.join(", "))}</p>` : ""}
       ${cleaning.length ? `<p><strong>Sprzątanie:</strong> ${escapeHtml(cleaning.slice(0, 8).join(", "))}${cleaning.length > 8 ? "..." : ""}</p>` : ""}
@@ -2491,6 +2567,7 @@ function ensureEntry(date) {
       status: "",
       tasks: ["", "", "", ""],
       cleaningTasks: [],
+      cleaningDone: [],
       recipeName: "",
       meal: "",
       shopping: "",
@@ -2545,6 +2622,7 @@ function addCleaningTaskFromForm() {
   state.settings.cleaningTasks = normalizeCleaningCatalog([...(state.settings.cleaningTasks || []), { group, name }]);
   const entry = getEntry(selectedDate);
   entry.cleaningTasks = normalizeCleaningSelection([...(entry.cleaningTasks || []), name]);
+  entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
   saveState();
   render();
 }
@@ -2572,6 +2650,7 @@ function copyEntryData(entry) {
     status: normalizeStatus(entry.status),
     tasks: normalizeTasks(entry.tasks),
     cleaningTasks: normalizeCleaningSelection(entry.cleaningTasks || []),
+    cleaningDone: normalizeCleaningDone(entry.cleaningDone || [], entry.cleaningTasks || []),
     recipeName: entry.recipeName || "",
     meal: entry.meal || "",
     shopping: entry.shopping || "",
@@ -2666,6 +2745,7 @@ function exportCsv() {
     "Status",
     "Zadania",
     "Sprzątanie",
+    "Sprzątanie zrobione",
     "Przepis",
     "Obiad",
     "Zakupy",
@@ -2681,6 +2761,7 @@ function exportCsv() {
     entry.status,
     entry.tasks.filter(Boolean).join(" | "),
     (entry.cleaningTasks || []).filter(Boolean).join(" | "),
+    (entry.cleaningDone || []).filter(Boolean).join(" | "),
     entry.recipeName,
     entry.meal,
     entry.shopping,
