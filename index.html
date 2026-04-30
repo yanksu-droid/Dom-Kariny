@@ -403,6 +403,18 @@ button {
   color: #ffffff;
 }
 
+.calendar-day.settled {
+  border-color: #bfe3ca;
+  background: #f0f9f2;
+  color: var(--green);
+}
+
+.calendar-day.work.settled {
+  border-color: var(--green);
+  background: #f0f9f2;
+  color: var(--green);
+}
+
 .calendar-day.selected {
   outline: 3px solid #f5b84b;
   outline-offset: 1px;
@@ -795,7 +807,7 @@ const typeOptions = [
   "Wolne",
 ];
 
-const statusOptions = ["Plan", "Potwierdzone", "W trakcie", "Zrobione", "Odwołane"];
+const statusOptions = ["Plan", "Potwierdzone", "Zrobione", "Odwołane", "Rozliczone"];
 
 const defaultTasks = [
   "Kuchnia",
@@ -1091,7 +1103,7 @@ function normalizeState(input) {
     start: entry.start || "",
     end: entry.end || "",
     type: entry.type || "Wolne",
-    status: entry.status || "",
+    status: normalizeStatus(entry.status),
     tasks: normalizeTasks(entry.tasks),
     recipeName: entry.recipeName || "",
     meal: entry.meal || "",
@@ -1110,6 +1122,11 @@ function normalizeTasks(tasks) {
   const out = Array.isArray(tasks) ? tasks.slice(0, 4) : [];
   while (out.length < 4) out.push("");
   return out.map((task) => task || "");
+}
+
+function normalizeStatus(status) {
+  if (status === "W trakcie") return "Potwierdzone";
+  return status || "";
 }
 
 function normalizeRecipes(recipes) {
@@ -1421,9 +1438,10 @@ function renderCalendar(month) {
     const entry = state.entries.find((item) => item.date === iso) || { date: iso, type: "Wolne", status: "" };
     const inMonth = iso.startsWith(month);
     const work = isWorkDay(entry);
+    const settled = entry.status === "Rozliczone";
     const selected = iso === selectedDate;
     return `
-      <button class="calendar-day ${inMonth ? "" : "muted"} ${work ? "work" : ""} ${selected ? "selected" : ""}" type="button" data-calendar-date="${iso}" aria-label="${escapeAttr(longDate(iso))}">
+      <button class="calendar-day ${inMonth ? "" : "muted"} ${work ? "work" : ""} ${settled ? "settled" : ""} ${selected ? "selected" : ""}" type="button" data-calendar-date="${iso}" aria-label="${escapeAttr(longDate(iso))}">
         <span>${date.getDate()}</span>
       </button>
     `;
@@ -1548,11 +1566,17 @@ function renderFinanse() {
   const shoppingEntries = monthEntries.filter(
     (entry) => entry.shopping || Number(entry.shoppingCost || 0) > 0 || entry.type.toLowerCase().includes("zakupy"),
   );
+  const hourlyRate = Number(state.settings.hourlyRate || 0);
   const hours = monthEntries.reduce((sum, entry) => sum + entryHours(entry), 0);
-  const workPay = hours * Number(state.settings.hourlyRate || 0);
+  const workPay = hours * hourlyRate;
+  const settledWorkPay = monthEntries.reduce(
+    (sum, entry) => sum + (entry.status === "Rozliczone" ? entryHours(entry) * hourlyRate : 0),
+    0,
+  );
   const shopping = monthEntries.reduce((sum, entry) => sum + Number(entry.shoppingCost || 0), 0);
   const advance = Number(state.settings.shoppingAdvance || 0);
   const extraShopping = Math.max(shopping - advance, 0);
+  const transferDue = Math.max(workPay - settledWorkPay, 0) + extraShopping;
   return `
     <section class="toolbar" aria-label="Miesiąc">
       <button class="icon-button" type="button" data-step-month="-1" aria-label="Poprzedni miesiąc">${arrowLeft()}</button>
@@ -1563,7 +1587,7 @@ function renderFinanse() {
       ["Godziny", formatHours(hours)],
       ["Praca", money(workPay)],
       ["Zakupy", money(shopping)],
-      ["Razem", money(workPay + extraShopping)],
+      ["Razem", money(transferDue)],
     ])}
     <section class="settlement-panel">
       <h3>Kwoty i zakupy</h3>
@@ -1571,11 +1595,12 @@ function renderFinanse() {
         <tbody>
           <tr><td>Stawka</td><td>${money(state.settings.hourlyRate)} / h</td></tr>
           <tr><td>Koszt pracy</td><td>${money(workPay)}</td></tr>
+          <tr><td>Rozliczone dni</td><td>${settledWorkPay ? `-${money(settledWorkPay)}` : money(0)}</td></tr>
           <tr><td>Zaliczka zakupowa</td><td>${money(advance)}</td></tr>
           <tr><td>Wydano z zaliczki</td><td>${money(shopping)}</td></tr>
           <tr><td>Pozostało z zaliczki</td><td>${money(Math.max(advance - shopping, 0))}</td></tr>
           <tr><td>Dopłata za zakupy</td><td>${money(extraShopping)}</td></tr>
-          <tr><th>Do przekazania</th><th>${money(workPay + extraShopping)}</th></tr>
+          <tr><th>Do przekazania</th><th>${money(transferDue)}</th></tr>
         </tbody>
       </table>
     </section>
