@@ -492,14 +492,35 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
-.recipe-preview strong {
-  display: block;
+.recipe-name-link {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--blue);
+  font-weight: 900;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.recipe-preview p {
-  margin: 6px 0 0;
+.recipe-url {
+  display: block;
+  width: fit-content;
+  margin-top: 6px;
   color: var(--muted);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.recipe-url.muted {
+  font-weight: 700;
+}
+
+.list-card.is-focused {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13, 92, 99, 0.12), var(--shadow);
 }
 
 .list-stack {
@@ -859,6 +880,7 @@ let state = loadState();
 let activeView = "telefon";
 let selectedDate = pickInitialDate();
 let selectedMonth = selectedDate.slice(0, 7);
+let focusedRecipeName = "";
 let sync = {
   status: "starting",
   user: null,
@@ -1137,6 +1159,7 @@ function normalizeRecipes(recipes) {
     map.set(name.toLowerCase(), {
       name,
       ingredients: recipe.ingredients || "",
+      link: recipe.link || "",
       steps: recipe.steps || "",
       notes: recipe.notes || "",
     });
@@ -1467,10 +1490,15 @@ function isWorkDay(entry) {
 }
 
 function renderRecipePreview(recipe) {
+  const href = safeRecipeUrl(recipe.link);
   return `
     <div class="recipe-preview">
-      <strong>${escapeHtml(recipe.name)}</strong>
-      ${recipe.ingredients ? `<p>${escapeHtml(recipe.ingredients)}</p>` : ""}
+      <button class="recipe-name-link" type="button" data-open-recipe-menu="${escapeAttr(recipe.name)}">${escapeHtml(recipe.name)}</button>
+      ${
+        href
+          ? `<a class="recipe-url" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">Otwórz przepis</a>`
+          : '<span class="recipe-url muted">Brak linku do przepisu</span>'
+      }
     </div>
   `;
 }
@@ -1502,6 +1530,7 @@ function renderGrafik() {
 }
 
 function renderMenu() {
+  const focusedRecipe = findRecipe(focusedRecipeName) || {};
   return `
     <section class="view-title">
       <h2>Menu</h2>
@@ -1512,22 +1541,26 @@ function renderMenu() {
       <div class="settings-grid">
         <div class="settings-field full">
           <label for="recipeName">Nazwa</label>
-          <input id="recipeName" type="text" data-new-recipe="name" list="recipeNames" />
+          <input id="recipeName" type="text" data-new-recipe="name" list="recipeNames" value="${escapeAttr(focusedRecipe.name || "")}" />
           <datalist id="recipeNames">
             ${state.recipes.map((recipe) => `<option value="${escapeAttr(recipe.name)}"></option>`).join("")}
           </datalist>
         </div>
         <div class="settings-field full">
+          <label for="recipeLink">Link</label>
+          <input id="recipeLink" type="url" inputmode="url" data-new-recipe="link" value="${escapeAttr(focusedRecipe.link || "")}" />
+        </div>
+        <div class="settings-field full">
           <label for="recipeIngredients">Składniki</label>
-          <textarea id="recipeIngredients" data-new-recipe="ingredients"></textarea>
+          <textarea id="recipeIngredients" data-new-recipe="ingredients">${escapeHtml(focusedRecipe.ingredients || "")}</textarea>
         </div>
         <div class="settings-field full">
           <label for="recipeSteps">Przygotowanie</label>
-          <textarea id="recipeSteps" data-new-recipe="steps"></textarea>
+          <textarea id="recipeSteps" data-new-recipe="steps">${escapeHtml(focusedRecipe.steps || "")}</textarea>
         </div>
         <div class="settings-field full">
           <label for="recipeNotes">Uwagi</label>
-          <textarea id="recipeNotes" data-new-recipe="notes"></textarea>
+          <textarea id="recipeNotes" data-new-recipe="notes">${escapeHtml(focusedRecipe.notes || "")}</textarea>
         </div>
       </div>
       <div class="card-actions">
@@ -1542,8 +1575,9 @@ function renderMenu() {
 }
 
 function renderRecipeCard(recipe) {
+  const href = safeRecipeUrl(recipe.link);
   return `
-    <article class="list-card">
+    <article class="list-card ${recipe.name === focusedRecipeName ? "is-focused" : ""}">
       <header>
         <div>
           <h3>${escapeHtml(recipe.name)}</h3>
@@ -1551,6 +1585,7 @@ function renderRecipeCard(recipe) {
         </div>
         <span class="chip">Menu</span>
       </header>
+      ${href ? `<p><strong>Link:</strong> <a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(href)}</a></p>` : ""}
       ${recipe.ingredients ? `<p><strong>Składniki:</strong> ${escapeHtml(recipe.ingredients)}</p>` : ""}
       ${recipe.steps ? `<p><strong>Przygotowanie:</strong> ${escapeHtml(recipe.steps)}</p>` : ""}
       <div class="card-actions">
@@ -1739,6 +1774,14 @@ function bindEditButtons(root) {
 }
 
 function bindRecipeButtons(root) {
+  root.querySelectorAll("[data-open-recipe-menu]").forEach((button) => {
+    button.addEventListener("click", () => {
+      focusedRecipeName = button.dataset.openRecipeMenu || "";
+      activeView = "menu";
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
   root.querySelector("[data-save-recipe]")?.addEventListener("click", saveRecipeFromForm);
   root.querySelector("[data-fill-recipe]")?.addEventListener("click", fillRecipeFormFromName);
   root.querySelectorAll("[data-use-recipe]").forEach((button) => {
@@ -1754,6 +1797,7 @@ function bindRecipeButtons(root) {
   });
   root.querySelectorAll("[data-edit-recipe]").forEach((button) => {
     button.addEventListener("click", () => {
+      focusedRecipeName = button.dataset.editRecipe || "";
       fillRecipeForm(button.dataset.editRecipe);
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1806,6 +1850,7 @@ function saveRecipeFromForm() {
     state.recipes.push(recipe);
   }
   state.recipes = normalizeRecipes(state.recipes);
+  focusedRecipeName = recipe.name;
   saveState();
   render();
 }
@@ -1815,6 +1860,7 @@ function readRecipeForm() {
   return {
     name: get("name"),
     ingredients: get("ingredients"),
+    link: get("link"),
     steps: get("steps"),
     notes: get("notes"),
   };
@@ -1830,6 +1876,7 @@ function fillRecipeForm(name) {
   if (!recipe) return;
   app.querySelector('[data-new-recipe="name"]').value = recipe.name;
   app.querySelector('[data-new-recipe="ingredients"]').value = recipe.ingredients;
+  app.querySelector('[data-new-recipe="link"]').value = recipe.link || "";
   app.querySelector('[data-new-recipe="steps"]').value = recipe.steps;
   app.querySelector('[data-new-recipe="notes"]').value = recipe.notes;
 }
@@ -1995,6 +2042,18 @@ function ensureEntry(date) {
 function findRecipe(name) {
   if (!name) return null;
   return state.recipes.find((recipe) => recipe.name.toLowerCase() === String(name).toLowerCase()) || null;
+}
+
+function safeRecipeUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const withProtocol = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+  try {
+    const url = new URL(withProtocol);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
 }
 
 function entryTotals(entry) {
