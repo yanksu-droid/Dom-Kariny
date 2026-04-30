@@ -1492,9 +1492,10 @@ function normalizeCleaningCatalog(tasks) {
 }
 
 function mergeCleaningCatalog(tasks, version = 0) {
+  const hasCatalog = Array.isArray(tasks);
   const incoming = normalizeCleaningCatalog(tasks || []);
   if (Number(version || 0) >= CLEANING_CATALOG_VERSION) {
-    return incoming.length ? incoming : normalizeCleaningCatalog(defaultCleaningTasks);
+    return hasCatalog ? incoming : normalizeCleaningCatalog(defaultCleaningTasks);
   }
   const custom = incoming.filter((task) => !legacyCleaningTaskNames.has(task.name));
   return normalizeCleaningCatalog([...defaultCleaningTasks, ...custom]);
@@ -2080,7 +2081,7 @@ function renderSprzatanie() {
                           <div class="cleaning-check ${selected.has(task.name) ? "is-selected" : ""}">
                             <input type="checkbox" data-cleaning-task="${escapeAttr(task.name)}" aria-label="Wybierz do sprzątania: ${escapeAttr(task.name)}" ${selected.has(task.name) ? "checked" : ""} />
                             <span>${escapeHtml(task.name)}</span>
-                            ${selected.has(task.name) ? `<button class="action-button compact danger cleaning-remove-button" type="button" data-remove-cleaning-task="${escapeAttr(task.name)}">Usuń</button>` : ""}
+                            ${selected.has(task.name) ? `<button class="action-button compact danger cleaning-remove-button" type="button" data-remove-cleaning-task="${escapeAttr(task.name)}">Usuń na stałe</button>` : ""}
                           </div>
                         `,
                       )
@@ -2352,10 +2353,12 @@ function bindCleaningControls(root) {
   root.querySelectorAll("[data-remove-cleaning-task]").forEach((button) => {
     button.addEventListener("click", () => {
       const scrollPosition = { x: window.scrollX || 0, y: window.scrollY || 0 };
-      const entry = getEntry(selectedDate);
       const task = button.dataset.removeCleaningTask || "";
-      entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks || []).filter((item) => item !== task);
-      entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
+      if (!task) return;
+      if (!window.confirm(`Usunąć na stałe z listy sprzątania: ${task}? Czynność zniknie też ze wszystkich zapisanych dni.`)) {
+        return;
+      }
+      removeCleaningTaskPermanently(task);
       saveState();
       render();
       requestAnimationFrame(() => window.scrollTo(scrollPosition.x, scrollPosition.y));
@@ -2728,6 +2731,23 @@ function addCleaningTaskFromForm() {
   entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
   saveState();
   render();
+}
+
+function removeCleaningTaskPermanently(taskName) {
+  const name = String(taskName || "").trim();
+  if (!name) return;
+  const key = name.toLowerCase();
+  state.settings.cleaningTasks = normalizeCleaningCatalog(state.settings.cleaningTasks || []).filter(
+    (task) => task.name.toLowerCase() !== key,
+  );
+  state.settings.cleaningCatalogVersion = CLEANING_CATALOG_VERSION;
+  state.entries.forEach((entry) => {
+    entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks || []).filter((task) => task.toLowerCase() !== key);
+    entry.cleaningDone = normalizeCleaningDone(
+      normalizeCleaningSelection(entry.cleaningDone || []).filter((task) => task.toLowerCase() !== key),
+      entry.cleaningTasks,
+    );
+  });
 }
 
 function loadDayClone() {
