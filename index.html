@@ -1008,11 +1008,9 @@ async function signInFirebase() {
   render();
 
   const provider = new window.firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
   try {
-    if (window.matchMedia("(max-width: 720px)").matches) {
-      await sync.auth.signInWithRedirect(provider);
-      return;
-    }
+    await sync.auth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL);
     await sync.auth.signInWithPopup(provider);
   } catch (error) {
     if (["auth/popup-blocked", "auth/cancelled-popup-request", "auth/operation-not-supported-in-this-environment"].includes(error?.code)) {
