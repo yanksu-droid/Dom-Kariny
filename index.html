@@ -172,7 +172,7 @@ button {
   left: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 4px;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.96);
@@ -192,7 +192,7 @@ button {
   border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
 }
 
@@ -518,6 +518,42 @@ button {
   font-weight: 700;
 }
 
+.cleaning-preview {
+  padding: 12px;
+  background: #f7fbff;
+  border-bottom: 1px solid var(--line);
+}
+
+.cleaning-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cleaning-preview-list {
+  display: grid;
+  gap: 6px;
+  max-height: 190px;
+  margin-top: 10px;
+  overflow: auto;
+}
+
+.cleaning-preview-list span {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.cleaning-preview p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
 .list-card.is-focused {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(13, 92, 99, 0.12), var(--shadow);
@@ -590,14 +626,124 @@ button {
 }
 
 .settlement-panel,
-.settings-panel {
+.settings-panel,
+.cleaning-panel,
+.clone-panel {
   padding: 14px;
 }
 
 .settlement-panel h3,
-.settings-panel h3 {
+.settings-panel h3,
+.cleaning-panel h3,
+.clone-panel h3 {
   margin: 0 0 12px;
   font-size: 1rem;
+}
+
+.cleaning-panel,
+.clone-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.clone-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.clone-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.cleaning-panel {
+  margin-bottom: 12px;
+}
+
+.cleaning-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cleaning-panel > header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.cleaning-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.cleaning-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  overflow: hidden;
+}
+
+.cleaning-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.cleaning-group summary span:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.cleaning-checks {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+}
+
+.cleaning-check {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 11px 12px;
+  background: var(--surface);
+  font-weight: 700;
+}
+
+.cleaning-check input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--primary);
+}
+
+@media (max-width: 520px) {
+  .clone-panel,
+  .cleaning-panel > header {
+    display: grid;
+  }
+
+  .clone-panel .card-actions,
+  .cleaning-panel > header .action-button {
+    width: 100%;
+  }
+
+  .clone-panel .action-button,
+  .cleaning-panel > header .action-button {
+    width: 100%;
+  }
 }
 
 .settlement-table {
@@ -735,7 +881,7 @@ button {
     top: 68px;
     width: min(100% - 32px, 940px);
     margin: 14px auto 0;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     border: 1px solid var(--line);
     border-radius: 8px;
     box-shadow: none;
@@ -785,6 +931,10 @@ button {
           <span class="tab-icon" data-icon="menu"></span>
           <span>Menu</span>
         </button>
+        <button class="tab" type="button" data-view="sprzatanie" aria-label="Sprzątanie">
+          <span class="tab-icon" data-icon="cleaning"></span>
+          <span>Sprząt.</span>
+        </button>
         <button class="tab" type="button" data-view="finanse" aria-label="Kwoty i zakupy">
           <span class="tab-icon" data-icon="wallet"></span>
           <span>Kwoty</span>
@@ -805,6 +955,7 @@ button {
     <script>
 const STORAGE_KEY = "karina-home-app-v1";
 const CLIENT_ID_KEY = "karina-home-app-client-id";
+const DAY_CLONE_KEY = "karina-home-app-day-clone";
 const FIRESTORE_STATE_PATH = "apps/karina/state/main";
 const REMOTE_WRITE_DELAY = 1000;
 
@@ -848,6 +999,40 @@ const defaultTasks = [
   "Mycie okien",
 ];
 
+const defaultCleaningTasks = [
+  { group: "Kuchnia", name: "Blaty, zlew i bateria" },
+  { group: "Kuchnia", name: "Fronty szafek i uchwyty" },
+  { group: "Kuchnia", name: "Płyta grzewcza" },
+  { group: "Kuchnia", name: "Piekarnik z zewnątrz" },
+  { group: "Kuchnia", name: "Mikrofalówka z zewnątrz i w środku" },
+  { group: "Kuchnia", name: "Stół i krzesła" },
+  { group: "Kuchnia", name: "Wyrzucenie śmieci" },
+  { group: "Łazienki", name: "Umywalka i bateria" },
+  { group: "Łazienki", name: "Toaleta" },
+  { group: "Łazienki", name: "Prysznic lub wanna" },
+  { group: "Łazienki", name: "Lustra" },
+  { group: "Łazienki", name: "Fronty szafek łazienkowych" },
+  { group: "Łazienki", name: "Wymiana ręczników" },
+  { group: "Podłogi", name: "Odkurzanie całego domu" },
+  { group: "Podłogi", name: "Mycie podłóg" },
+  { group: "Podłogi", name: "Schody" },
+  { group: "Podłogi", name: "Dywany i chodniki" },
+  { group: "Pokoje", name: "Kurz z półek i komód" },
+  { group: "Pokoje", name: "Parapety" },
+  { group: "Pokoje", name: "Drzwi i klamki" },
+  { group: "Pokoje", name: "Kanapa i fotele" },
+  { group: "Pokoje", name: "Ułożenie rzeczy na miejsce" },
+  { group: "Sypialnie", name: "Wymiana pościeli" },
+  { group: "Sypialnie", name: "Odkurzenie pod łóżkiem" },
+  { group: "Pranie", name: "Pranie" },
+  { group: "Pranie", name: "Suszenie lub rozwieszenie prania" },
+  { group: "Pranie", name: "Składanie ubrań" },
+  { group: "Okna", name: "Mycie okien" },
+  { group: "Okna", name: "Ramy okienne i parapety zewnętrzne" },
+  { group: "Inne", name: "Lodówka - szybki przegląd" },
+  { group: "Inne", name: "Podlanie kwiatów" },
+];
+
 const defaultRecipes = [
   {
     name: "Pierogi z mięsem",
@@ -872,6 +1057,8 @@ const icons = {
     '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><path d="M8 7h8M8 11h8"/></svg>',
   wallet:
     '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 7h18v12H3z"/><path d="M16 12h5v4h-5zM3 7l13-4v4"/></svg>',
+  cleaning:
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 21h8"/><path d="M7 21V9"/><path d="M5 9h4"/><path d="M8 9l9-6 2 3-10 6"/><path d="M11 21c0-4 2-7 6-9l3 7c-3 1-6 2-9 2z"/></svg>',
   settings:
     '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M3 12h3m12 0h3M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/></svg>',
 };
@@ -881,6 +1068,7 @@ let activeView = "telefon";
 let selectedDate = pickInitialDate();
 let selectedMonth = selectedDate.slice(0, 7);
 let focusedRecipeName = "";
+let dayClone = loadDayClone();
 let sync = {
   status: "starting",
   user: null,
@@ -1120,6 +1308,8 @@ function loadState() {
 function normalizeState(input) {
   const seed = createSeedState();
   const settings = { ...seed.settings, ...(input.settings || {}) };
+  settings.tasks = normalizeTaskCatalog(settings.tasks || seed.settings.tasks);
+  settings.cleaningTasks = normalizeCleaningCatalog(settings.cleaningTasks || seed.settings.cleaningTasks);
   const entries = (input.entries || seed.entries).map((entry) => ({
     date: entry.date,
     start: entry.start || "",
@@ -1127,6 +1317,7 @@ function normalizeState(input) {
     type: entry.type || "Wolne",
     status: normalizeStatus(entry.status),
     tasks: normalizeTasks(entry.tasks),
+    cleaningTasks: normalizeCleaningSelection(entry.cleaningTasks || entry.cleaning || []),
     recipeName: entry.recipeName || "",
     meal: entry.meal || "",
     shopping: entry.shopping || "",
@@ -1144,6 +1335,26 @@ function normalizeTasks(tasks) {
   const out = Array.isArray(tasks) ? tasks.slice(0, 4) : [];
   while (out.length < 4) out.push("");
   return out.map((task) => task || "");
+}
+
+function normalizeTaskCatalog(tasks) {
+  return [...new Set((tasks || []).map((task) => String(task || "").trim()).filter(Boolean))];
+}
+
+function normalizeCleaningSelection(tasks) {
+  return [...new Set((tasks || []).map((task) => String(task || "").trim()).filter(Boolean))];
+}
+
+function normalizeCleaningCatalog(tasks) {
+  const map = new Map();
+  for (const item of tasks || []) {
+    const group = typeof item === "string" ? "Inne" : String(item.group || "Inne").trim();
+    const name = typeof item === "string" ? item : item.name;
+    const cleanName = String(name || "").trim();
+    if (!cleanName) continue;
+    map.set(cleanName.toLowerCase(), { group: group || "Inne", name: cleanName });
+  }
+  return [...map.values()].sort((a, b) => a.group.localeCompare(b.group, "pl") || a.name.localeCompare(b.name, "pl"));
 }
 
 function normalizeStatus(status) {
@@ -1238,6 +1449,7 @@ function createSeedState() {
     hourlyRate: 45,
     shoppingAdvance: 400,
     tasks: defaultTasks,
+    cleaningTasks: defaultCleaningTasks,
   };
   const entries = buildDays("2026-04-27", 70).map((date) => ({
     date,
@@ -1246,6 +1458,7 @@ function createSeedState() {
     type: "Wolne",
     status: "",
     tasks: ["", "", "", ""],
+    cleaningTasks: [],
     recipeName: "",
     meal: "",
     shopping: "",
@@ -1275,6 +1488,7 @@ function createSeedState() {
       "Pranie",
       "Obiad (schab w sosie z porem i marchewką)",
     ],
+    cleaningTasks: ["Blaty, zlew i bateria", "Odkurzanie całego domu", "Mycie podłóg", "Pranie"],
     recipeName: "Schab w sosie z porem i marchewką",
     meal: "Według zakładki Menu",
   });
@@ -1309,6 +1523,7 @@ function patchEntry(entries, date, patch) {
   if (!entry) return;
   Object.assign(entry, patch);
   entry.tasks = normalizeTasks(entry.tasks);
+  entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks);
 }
 
 function buildDays(startDate, count) {
@@ -1342,6 +1557,7 @@ function render() {
     telefon: renderTelefon,
     grafik: renderGrafik,
     menu: renderMenu,
+    sprzatanie: renderSprzatanie,
     finanse: renderFinanse,
     zakupy: renderFinanse,
     rozliczenia: renderFinanse,
@@ -1438,12 +1654,48 @@ function renderTelefon() {
         ${selectField("Zad. 2", "task-1", entry.tasks[1], ["", ...state.settings.tasks])}
         ${selectField("Zad. 3", "task-2", entry.tasks[2], ["", ...state.settings.tasks])}
         ${selectField("Zad. 4", "task-3", entry.tasks[3], ["", ...state.settings.tasks])}
+        ${renderCleaningDayPreview(entry)}
         ${selectField("Przepis", "recipeName", entry.recipeName, ["", ...state.recipes.map((recipe) => recipe.name)])}
         ${selectedRecipe ? renderRecipePreview(selectedRecipe) : ""}
         ${textareaField("Obiad", "meal", entry.meal, true)}
         ${textareaField("Zakupy", "shopping", entry.shopping, true)}
         ${inputField("Koszt", "shoppingCost", entry.shoppingCost || "", "number", "0.01")}
         ${textareaField("Notatki", "notes", entry.notes)}
+      </div>
+    </section>
+    ${renderClonePanel()}
+  `;
+}
+
+function renderCleaningDayPreview(entry) {
+  const tasks = normalizeCleaningSelection(entry.cleaningTasks || []);
+  const showEmpty = isCleaningPlanned(entry);
+  if (!tasks.length && !showEmpty) return "";
+  return `
+    <div class="cleaning-preview">
+      <div class="cleaning-preview-head">
+        <button class="recipe-name-link" type="button" data-open-cleaning>${tasks.length ? "Zakres sprzątania" : "Ustaw zakres sprzątania"}</button>
+        <span class="chip">${tasks.length} czynności</span>
+      </div>
+      ${
+        tasks.length
+          ? `<div class="cleaning-preview-list">${tasks.map((task) => `<span>${escapeHtml(task)}</span>`).join("")}</div>`
+          : '<p>Ten dzień wygląda na sprzątanie, ale zakres nie jest jeszcze skonfigurowany.</p>'
+      }
+    </div>
+  `;
+}
+
+function renderClonePanel() {
+  return `
+    <section class="clone-panel">
+      <div>
+        <h3>Klonowanie dnia</h3>
+        <p>${dayClone ? `Skopiowano: ${escapeHtml(dayClone.sourceDate ? longDate(dayClone.sourceDate) : "dzień")}` : "Skopiuj cały dzień i wklej go na innej dacie."}</p>
+      </div>
+      <div class="card-actions">
+        <button class="action-button" type="button" data-copy-day>Kopiuj ten dzień</button>
+        <button class="action-button primary" type="button" data-paste-day ${dayClone ? "" : "disabled"}>Wklej tutaj</button>
       </div>
     </section>
   `;
@@ -1596,6 +1848,84 @@ function renderRecipeCard(recipe) {
   `;
 }
 
+function renderSprzatanie() {
+  const entry = getEntry(selectedDate);
+  const selected = new Set(normalizeCleaningSelection(entry.cleaningTasks || []));
+  const groups = groupCleaningTasks(state.settings.cleaningTasks);
+  const groupNames = groups.map(([group]) => group);
+  return `
+    <section class="toolbar" aria-label="Data sprzątania">
+      <button class="icon-button" type="button" data-step-day="-1" aria-label="Poprzedni dzień">${arrowLeft()}</button>
+      <input class="date-control" type="date" value="${escapeAttr(selectedDate)}" data-date-picker />
+      <button class="icon-button" type="button" data-step-day="1" aria-label="Następny dzień">${arrowRight()}</button>
+    </section>
+    <section class="view-title">
+      <h2>Sprzątanie</h2>
+      <p>${escapeHtml(longDate(selectedDate))} · ${escapeHtml(dayName(selectedDate))}</p>
+    </section>
+    ${renderSummary([
+      ["Wybrane", String(selected.size)],
+      ["Typ dnia", escapeHtml(entry.type || "Brak")],
+      ["Status", escapeHtml(entry.status || "Brak")],
+      ["Godziny", formatHours(entryHours(entry))],
+    ])}
+    <section class="cleaning-panel">
+      <header>
+        <div>
+          <h3>Zakres sprzątania</h3>
+          <p>Wybrane czynności pojawią się w zakładce Dzień pod zadaniami.</p>
+        </div>
+        <button class="action-button" type="button" data-clear-cleaning ${selected.size ? "" : "disabled"}>Wyczyść</button>
+      </header>
+      <div class="cleaning-groups">
+        ${groups
+          .map(
+            ([group, tasks]) => `
+              <details class="cleaning-group" open>
+                <summary>
+                  <span>${escapeHtml(group)}</span>
+                  <span>${tasks.filter((task) => selected.has(task.name)).length}/${tasks.length}</span>
+                </summary>
+                <div class="cleaning-checks">
+                  ${tasks
+                    .map(
+                      (task) => `
+                        <label class="cleaning-check">
+                          <input type="checkbox" data-cleaning-task="${escapeAttr(task.name)}" ${selected.has(task.name) ? "checked" : ""} />
+                          <span>${escapeHtml(task.name)}</span>
+                        </label>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              </details>
+            `,
+          )
+          .join("")}
+      </div>
+    </section>
+    <section class="settings-panel">
+      <h3>Dodaj własną czynność</h3>
+      <div class="settings-grid">
+        <div class="settings-field">
+          <label for="cleaningGroup">Kategoria</label>
+          <input id="cleaningGroup" type="text" data-new-cleaning="group" list="cleaningGroups" />
+          <datalist id="cleaningGroups">
+            ${groupNames.map((group) => `<option value="${escapeAttr(group)}"></option>`).join("")}
+          </datalist>
+        </div>
+        <div class="settings-field">
+          <label for="cleaningName">Czynność</label>
+          <input id="cleaningName" type="text" data-new-cleaning="name" />
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="action-button primary" type="button" data-add-cleaning-task>Dodaj do listy</button>
+      </div>
+    </section>
+  `;
+}
+
 function renderFinanse() {
   const monthEntries = state.entries.filter((entry) => entry.date.startsWith(selectedMonth));
   const shoppingEntries = monthEntries.filter(
@@ -1730,6 +2060,8 @@ function bindView() {
 
   bindEditButtons(app);
   bindRecipeButtons(app);
+  bindCleaningControls(app);
+  bindCloneControls(app);
 
   app.querySelector("[data-search]")?.addEventListener("input", (event) => {
     const list = app.querySelector('[data-list="schedule"]');
@@ -1804,9 +2136,68 @@ function bindRecipeButtons(root) {
   });
 }
 
+function bindCleaningControls(root) {
+  root.querySelector("[data-open-cleaning]")?.addEventListener("click", () => {
+    activeView = "sprzatanie";
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  root.querySelectorAll("[data-cleaning-task]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const entry = getEntry(selectedDate);
+      const tasks = new Set(normalizeCleaningSelection(entry.cleaningTasks || []));
+      const task = checkbox.dataset.cleaningTask || "";
+      if (checkbox.checked) {
+        tasks.add(task);
+      } else {
+        tasks.delete(task);
+      }
+      entry.cleaningTasks = [...tasks].sort((a, b) => a.localeCompare(b, "pl"));
+      saveState();
+      render();
+    });
+  });
+
+  root.querySelector("[data-clear-cleaning]")?.addEventListener("click", () => {
+    const entry = getEntry(selectedDate);
+    entry.cleaningTasks = [];
+    saveState();
+    render();
+  });
+
+  root.querySelector("[data-add-cleaning-task]")?.addEventListener("click", addCleaningTaskFromForm);
+}
+
+function bindCloneControls(root) {
+  root.querySelector("[data-copy-day]")?.addEventListener("click", () => {
+    dayClone = {
+      sourceDate: selectedDate,
+      data: copyEntryData(getEntry(selectedDate)),
+    };
+    storageSet(DAY_CLONE_KEY, JSON.stringify(dayClone));
+    setSaveState("Skopiowano dzień");
+    render();
+  });
+
+  root.querySelector("[data-paste-day]")?.addEventListener("click", () => {
+    if (!dayClone?.data) return;
+    const sourceLabel = dayClone.sourceDate ? longDate(dayClone.sourceDate) : "skopiowany";
+    if (!window.confirm(`Wkleić dzień ${sourceLabel} do ${longDate(selectedDate)}?`)) return;
+    const entry = getEntry(selectedDate);
+    Object.assign(entry, copyEntryData(dayClone.data));
+    entry.date = selectedDate;
+    entry.tasks = normalizeTasks(entry.tasks);
+    entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks);
+    saveState({ immediate: true });
+    render();
+  });
+}
+
 function updateEntryFromField(event) {
   const entry = getEntry(selectedDate);
   const field = event.target.dataset.field;
+  const shouldRenderAfterSave = event.type === "change" && (field === "type" || field.startsWith("task-"));
   if (field.startsWith("task-")) {
     entry.tasks[Number(field.split("-")[1])] = event.target.value;
   } else if (field === "shoppingCost") {
@@ -1822,6 +2213,7 @@ function updateEntryFromField(event) {
     entry[field] = event.target.value;
   }
   saveState();
+  if (shouldRenderAfterSave) render();
 }
 
 function updateSettingFromField(event) {
@@ -1901,6 +2293,7 @@ function renderScheduleList(entries, query = "") {
       entry.type,
       entry.status,
       entry.tasks.join(" "),
+      (entry.cleaningTasks || []).join(" "),
       entry.recipeName,
       entry.meal,
       entry.shopping,
@@ -1917,6 +2310,7 @@ function renderScheduleList(entries, query = "") {
 function renderScheduleCard(entry) {
   const totals = entryTotals(entry);
   const tasks = entry.tasks.filter(Boolean);
+  const cleaning = normalizeCleaningSelection(entry.cleaningTasks || []);
   return `
     <article class="list-card">
       <header>
@@ -1931,8 +2325,10 @@ function renderScheduleCard(entry) {
         <span class="chip">${money(totals.workPay)}</span>
         ${entry.start && entry.end ? `<span class="chip">${escapeHtml(entry.start)}-${escapeHtml(entry.end)}</span>` : ""}
         ${entry.recipeName ? `<span class="chip">${escapeHtml(entry.recipeName)}</span>` : ""}
+        ${cleaning.length ? `<span class="chip">${cleaning.length} sprząt.</span>` : ""}
       </div>
       ${tasks.length ? `<p>${escapeHtml(tasks.join(", "))}</p>` : ""}
+      ${cleaning.length ? `<p><strong>Sprzątanie:</strong> ${escapeHtml(cleaning.slice(0, 8).join(", "))}${cleaning.length > 8 ? "..." : ""}</p>` : ""}
       ${entry.meal ? `<p>${escapeHtml(entry.meal)}</p>` : ""}
       <div class="card-actions">
         <button class="action-button" type="button" data-edit-date="${escapeAttr(entry.date)}">Edytuj</button>
@@ -2026,6 +2422,7 @@ function ensureEntry(date) {
       type: "Wolne",
       status: "",
       tasks: ["", "", "", ""],
+      cleaningTasks: [],
       recipeName: "",
       meal: "",
       shopping: "",
@@ -2054,6 +2451,65 @@ function safeRecipeUrl(value) {
   } catch {
     return "";
   }
+}
+
+function groupCleaningTasks(tasks) {
+  const groups = new Map();
+  for (const task of normalizeCleaningCatalog(tasks || [])) {
+    if (!groups.has(task.group)) groups.set(task.group, []);
+    groups.get(task.group).push(task);
+  }
+  return [...groups.entries()];
+}
+
+function isCleaningPlanned(entry) {
+  const haystack = [entry.type, ...(entry.tasks || [])].join(" ").toLowerCase();
+  return haystack.includes("sprząt");
+}
+
+function addCleaningTaskFromForm() {
+  const group = app.querySelector('[data-new-cleaning="group"]')?.value.trim() || "Inne";
+  const name = app.querySelector('[data-new-cleaning="name"]')?.value.trim() || "";
+  if (!name) {
+    setSaveState("Brak czynności");
+    return;
+  }
+  state.settings.cleaningTasks = normalizeCleaningCatalog([...(state.settings.cleaningTasks || []), { group, name }]);
+  const entry = getEntry(selectedDate);
+  entry.cleaningTasks = normalizeCleaningSelection([...(entry.cleaningTasks || []), name]);
+  saveState();
+  render();
+}
+
+function loadDayClone() {
+  const raw = storageGet(DAY_CLONE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed?.data) return null;
+    return {
+      sourceDate: parsed.sourceDate || "",
+      data: copyEntryData(parsed.data),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function copyEntryData(entry) {
+  return {
+    start: entry.start || "",
+    end: entry.end || "",
+    type: entry.type || "Wolne",
+    status: normalizeStatus(entry.status),
+    tasks: normalizeTasks(entry.tasks),
+    cleaningTasks: normalizeCleaningSelection(entry.cleaningTasks || []),
+    recipeName: entry.recipeName || "",
+    meal: entry.meal || "",
+    shopping: entry.shopping || "",
+    shoppingCost: Number(entry.shoppingCost || 0),
+    notes: entry.notes || "",
+  };
 }
 
 function entryTotals(entry) {
@@ -2141,6 +2597,7 @@ function exportCsv() {
     "Typ",
     "Status",
     "Zadania",
+    "Sprzątanie",
     "Przepis",
     "Obiad",
     "Zakupy",
@@ -2155,6 +2612,7 @@ function exportCsv() {
     entry.type,
     entry.status,
     entry.tasks.filter(Boolean).join(" | "),
+    (entry.cleaningTasks || []).filter(Boolean).join(" | "),
     entry.recipeName,
     entry.meal,
     entry.shopping,
