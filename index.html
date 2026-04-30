@@ -273,6 +273,18 @@ button {
   padding: 0 12px;
 }
 
+.action-button.compact {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.icon-button:disabled,
+.action-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .action-button.primary {
   border-color: var(--primary);
   background: var(--primary);
@@ -565,6 +577,7 @@ button {
   height: 20px;
   margin: 1px 0 0;
   accent-color: var(--primary);
+  cursor: pointer;
 }
 
 .cleaning-preview-check.is-done {
@@ -732,6 +745,14 @@ button {
 .cleaning-group summary span:last-child {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.cleaning-group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 12px 10px;
+  background: #fbfcfd;
 }
 
 .cleaning-checks {
@@ -1780,6 +1801,7 @@ function renderCleaningDayPreview(entry) {
   const dayEntry = getEntry(entry.date || selectedDate);
   const tasks = normalizeCleaningSelection(dayEntry.cleaningTasks || []);
   const done = new Set(normalizeCleaningDone(dayEntry.cleaningDone || [], tasks));
+  const orderedTasks = [...tasks.filter((task) => !done.has(task)), ...tasks.filter((task) => done.has(task))];
   const showEmpty = isCleaningPlanned(entry);
   if (!tasks.length && !showEmpty) return "";
   return `
@@ -1790,14 +1812,14 @@ function renderCleaningDayPreview(entry) {
       </div>
       ${
         tasks.length
-          ? `<div class="cleaning-preview-list" role="group" aria-label="Zakres sprzątania na ${escapeAttr(longDate(dayEntry.date))}">
-              ${tasks
+          ? `<div class="cleaning-preview-list" data-cleaning-preview-list role="group" aria-label="Zakres sprzątania na ${escapeAttr(longDate(dayEntry.date))}">
+              ${orderedTasks
                 .map(
                   (task) => `
-                    <label class="cleaning-preview-check ${done.has(task) ? "is-done" : ""}">
-                      <input type="checkbox" data-cleaning-done="${escapeAttr(task)}" ${done.has(task) ? "checked" : ""} />
+                    <div class="cleaning-preview-check ${done.has(task) ? "is-done" : ""}">
+                      <input type="checkbox" data-cleaning-done="${escapeAttr(task)}" aria-label="Oznacz jako wykonane: ${escapeAttr(task)}" ${done.has(task) ? "checked" : ""} />
                       <span>${escapeHtml(task)}</span>
-                    </label>
+                    </div>
                   `,
                 )
                 .join("")}
@@ -1806,6 +1828,25 @@ function renderCleaningDayPreview(entry) {
       }
     </div>
   `;
+}
+
+function getCleaningPreviewScrollSnapshot(checkbox) {
+  const list = checkbox.closest("[data-cleaning-preview-list]");
+  return {
+    listTop: list ? list.scrollTop : 0,
+    windowX: window.scrollX || 0,
+    windowY: window.scrollY || 0,
+  };
+}
+
+function restoreCleaningPreviewScrollSnapshot(snapshot) {
+  requestAnimationFrame(() => {
+    const list = document.querySelector("[data-cleaning-preview-list]");
+    if (list) {
+      list.scrollTop = Math.min(snapshot.listTop, list.scrollHeight);
+    }
+    window.scrollTo(snapshot.windowX, snapshot.windowY);
+  });
 }
 
 function renderClonePanel() {
@@ -2003,26 +2044,33 @@ function renderSprzatanie() {
       <div class="cleaning-groups">
         ${groups
           .map(
-            ([group, tasks]) => `
-              <details class="cleaning-group" open>
-                <summary>
-                  <span>${escapeHtml(group)}</span>
-                  <span>${tasks.filter((task) => selected.has(task.name)).length}/${tasks.length}</span>
-                </summary>
-                <div class="cleaning-checks">
-                  ${tasks
-                    .map(
-                      (task) => `
-                        <label class="cleaning-check">
-                          <input type="checkbox" data-cleaning-task="${escapeAttr(task.name)}" ${selected.has(task.name) ? "checked" : ""} />
-                          <span>${escapeHtml(task.name)}</span>
-                        </label>
-                      `,
-                    )
-                    .join("")}
-                </div>
-              </details>
-            `,
+            ([group, tasks]) => {
+              const selectedInGroup = tasks.filter((task) => selected.has(task.name)).length;
+              return `
+                <details class="cleaning-group" open>
+                  <summary>
+                    <span>${escapeHtml(group)}</span>
+                    <span>${selectedInGroup}/${tasks.length}</span>
+                  </summary>
+                  <div class="cleaning-group-actions">
+                    <button class="action-button compact" type="button" data-cleaning-group="${escapeAttr(group)}" data-cleaning-group-mode="all" ${selectedInGroup === tasks.length ? "disabled" : ""}>Zaznacz wszystko</button>
+                    <button class="action-button compact" type="button" data-cleaning-group="${escapeAttr(group)}" data-cleaning-group-mode="none" ${selectedInGroup ? "" : "disabled"}>Odznacz wszystko</button>
+                  </div>
+                  <div class="cleaning-checks">
+                    ${tasks
+                      .map(
+                        (task) => `
+                          <label class="cleaning-check">
+                            <input type="checkbox" data-cleaning-task="${escapeAttr(task.name)}" ${selected.has(task.name) ? "checked" : ""} />
+                            <span>${escapeHtml(task.name)}</span>
+                          </label>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                </details>
+              `;
+            },
           )
           .join("")}
       </div>
@@ -2283,8 +2331,31 @@ function bindCleaningControls(root) {
     });
   });
 
+  root.querySelectorAll("[data-cleaning-group-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = getEntry(selectedDate);
+      const selectedTasks = new Set(normalizeCleaningSelection(entry.cleaningTasks || []));
+      const groupName = button.dataset.cleaningGroup || "";
+      const groupMode = button.dataset.cleaningGroupMode || "";
+      const group = groupCleaningTasks(state.settings.cleaningTasks).find(([name]) => name === groupName);
+      const groupTasks = group ? group[1].map((task) => task.name) : [];
+      groupTasks.forEach((task) => {
+        if (groupMode === "all") {
+          selectedTasks.add(task);
+        } else {
+          selectedTasks.delete(task);
+        }
+      });
+      entry.cleaningTasks = [...selectedTasks].sort((a, b) => a.localeCompare(b, "pl"));
+      entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
+      saveState();
+      render();
+    });
+  });
+
   root.querySelectorAll("[data-cleaning-done]").forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
+      const scrollSnapshot = getCleaningPreviewScrollSnapshot(checkbox);
       const entry = getEntry(selectedDate);
       const done = new Set(normalizeCleaningDone(entry.cleaningDone || [], entry.cleaningTasks || []));
       const task = checkbox.dataset.cleaningDone || "";
@@ -2296,6 +2367,7 @@ function bindCleaningControls(root) {
       entry.cleaningDone = normalizeCleaningDone([...done], entry.cleaningTasks || []);
       saveState();
       render();
+      restoreCleaningPreviewScrollSnapshot(scrollSnapshot);
     });
   });
 
