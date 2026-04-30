@@ -958,6 +958,7 @@ const CLIENT_ID_KEY = "karina-home-app-client-id";
 const DAY_CLONE_KEY = "karina-home-app-day-clone";
 const FIRESTORE_STATE_PATH = "apps/karina/state/main";
 const REMOTE_WRITE_DELAY = 1000;
+const CLEANING_CATALOG_VERSION = 2;
 
 const firebaseConfig = {
   apiKey: "AIzaSyDPut_xH290lLMvT8OosokILQPwwzP0DaI",
@@ -1000,38 +1001,93 @@ const defaultTasks = [
 ];
 
 const defaultCleaningTasks = [
-  { group: "Kuchnia", name: "Blaty, zlew i bateria" },
-  { group: "Kuchnia", name: "Fronty szafek i uchwyty" },
-  { group: "Kuchnia", name: "Płyta grzewcza" },
-  { group: "Kuchnia", name: "Piekarnik z zewnątrz" },
-  { group: "Kuchnia", name: "Mikrofalówka z zewnątrz i w środku" },
-  { group: "Kuchnia", name: "Stół i krzesła" },
+  { group: "Cały dom", name: "Odkurzenie całego domu" },
+  { group: "Cały dom", name: "Umycie podłogi w całym domu" },
+  { group: "Strych", name: "Starcie kurzu" },
+  { group: "Sypialnia", name: "Starcie kurzu: półki, parapety, stoliczki nocne, komoda, listwy, kontakty i włączniki" },
+  { group: "Sypialnia", name: "Przetarcie frontów szafy, komody i drzwi" },
+  { group: "Sypialnia", name: "Pościelenie łóżka" },
+  { group: "Sypialnia", name: "Wytrzepanie dywaników" },
+  { group: "Sypialnia", name: "Zmiana pościeli" },
+  { group: "Pokój Marysi", name: "Starcie kurzu: półki nad biurkiem, biurko, stoliczki, stoliczek nocny i pufa" },
+  { group: "Pokój Marysi", name: "Starcie kurzu: listwy, kontakty i włączniki" },
+  { group: "Pokój Marysi", name: "Przetarcie frontów szafy, szafek, szuflad i drzwi" },
+  { group: "Pokój Marysi", name: "Pościelenie łóżka" },
+  { group: "Pokój Marysi", name: "Wytrzepanie dywanu" },
+  { group: "Pokój Jasia", name: "Starcie kurzu: półki nad biurkiem, biurko, stoliczek nocny, komódka lego, łóżko i półki" },
+  { group: "Pokój Jasia", name: "Starcie kurzu: listwy, kontakty i włączniki" },
+  { group: "Pokój Jasia", name: "Przetarcie frontów szafy, szuflad i drzwi" },
+  { group: "Pokój Jasia", name: "Pościelenie łóżka" },
+  { group: "Pokoje dzieci", name: "Zmiana pościeli" },
+  { group: "Łazienka górna", name: "Starcie kurzu: parapet, kontakty, włączniki i grzejnik" },
+  { group: "Łazienka górna", name: "Umycie blatu, luster, umywalek i baterii" },
+  { group: "Łazienka górna", name: "Umycie toalety" },
+  { group: "Łazienka górna", name: "Przetarcie frontów szafek i drzwi" },
+  { group: "Łazienka górna", name: "Umycie wanny i półek przy wannie" },
+  { group: "Łazienka górna", name: "Usunięcie pleśni przy wannie" },
+  { group: "Łazienka górna", name: "Odkamienienie szyby prysznicowej i wytarcie do sucha" },
+  { group: "Okna i żaluzje", name: "Sypialnia, gabinet i łazienka" },
+  { group: "Okna i żaluzje", name: "Pokoje dzieci" },
+  { group: "Okna i żaluzje", name: "Salon" },
+  { group: "Okna i żaluzje", name: "Kuchnia" },
+  { group: "Korytarz na piętrze", name: "Starcie kurzu: listwy przypodłogowe, kontakty i włączniki" },
+  { group: "Korytarz na piętrze", name: "Starcie kurzu z wiatraka" },
+  { group: "Klatka schodowa", name: "Starcie kurzu: poręcze i listwy przypodłogowe" },
+  { group: "Salon", name: "Starcie kurzu: regał TV, stoliczki, listwy przypodłogowe i naścienne" },
+  { group: "Salon", name: "Przetarcie kanapy i fotela wilgotną szmatką" },
+  { group: "Salon", name: "Umycie śladów na oknach tarasowych" },
+  { group: "Salon", name: "Starcie kurzu: stół, krzesła i ławka" },
+  { group: "Salon", name: "Usunięcie kłaczków kurzu spod krzeseł" },
+  { group: "Łazienka dolna", name: "Umycie blatu, umywalki, baterii i lustra" },
+  { group: "Łazienka dolna", name: "Umycie toalety" },
+  { group: "Łazienka dolna", name: "Przetarcie frontów szafek i drzwi" },
+  { group: "Łazienka dolna", name: "Umycie prysznica" },
+  { group: "Łazienka dolna", name: "Odkamienienie szyby prysznicowej i wytarcie do sucha" },
+  { group: "Łazienka dolna", name: "Starcie kurzu z pralki i podłogi przy pralce" },
+  { group: "Siłownia", name: "Odkurzenie i umycie podłogi" },
+  { group: "Siłownia", name: "Przetarcie drzwi" },
+  { group: "Kuchnia", name: "Umycie blatów i zlewu" },
+  { group: "Kuchnia", name: "Umycie frontów szafek, witryn i lodówki" },
+  { group: "Kuchnia", name: "Umycie lamp" },
+  { group: "Kuchnia", name: "Uruchomienie lub rozładowanie zmywarki, jeśli pełna" },
   { group: "Kuchnia", name: "Wyrzucenie śmieci" },
-  { group: "Łazienki", name: "Umywalka i bateria" },
-  { group: "Łazienki", name: "Toaleta" },
-  { group: "Łazienki", name: "Prysznic lub wanna" },
-  { group: "Łazienki", name: "Lustra" },
-  { group: "Łazienki", name: "Fronty szafek łazienkowych" },
-  { group: "Łazienki", name: "Wymiana ręczników" },
-  { group: "Podłogi", name: "Odkurzanie całego domu" },
-  { group: "Podłogi", name: "Mycie podłóg" },
-  { group: "Podłogi", name: "Schody" },
-  { group: "Podłogi", name: "Dywany i chodniki" },
-  { group: "Pokoje", name: "Kurz z półek i komód" },
-  { group: "Pokoje", name: "Parapety" },
-  { group: "Pokoje", name: "Drzwi i klamki" },
-  { group: "Pokoje", name: "Kanapa i fotele" },
-  { group: "Pokoje", name: "Ułożenie rzeczy na miejsce" },
-  { group: "Sypialnie", name: "Wymiana pościeli" },
-  { group: "Sypialnie", name: "Odkurzenie pod łóżkiem" },
-  { group: "Pranie", name: "Pranie" },
-  { group: "Pranie", name: "Suszenie lub rozwieszenie prania" },
-  { group: "Pranie", name: "Składanie ubrań" },
-  { group: "Okna", name: "Mycie okien" },
-  { group: "Okna", name: "Ramy okienne i parapety zewnętrzne" },
-  { group: "Inne", name: "Lodówka - szybki przegląd" },
-  { group: "Inne", name: "Podlanie kwiatów" },
+  { group: "Korytarz i wejście", name: "Przetarcie frontów szafek i listew przypodłogowych" },
+  { group: "Korytarz i wejście", name: "Przetarcie drzwi wejściowych od środka i od frontu" },
+  { group: "Korytarz i wejście", name: "Zamiecenie lub odkurzenie dywanu przed wejściem do domu" },
 ];
+
+const legacyCleaningTaskNames = new Set([
+  "Blaty, zlew i bateria",
+  "Fronty szafek i uchwyty",
+  "Płyta grzewcza",
+  "Piekarnik z zewnątrz",
+  "Mikrofalówka z zewnątrz i w środku",
+  "Stół i krzesła",
+  "Umywalka i bateria",
+  "Toaleta",
+  "Prysznic lub wanna",
+  "Lustra",
+  "Fronty szafek łazienkowych",
+  "Wymiana ręczników",
+  "Odkurzanie całego domu",
+  "Mycie podłóg",
+  "Schody",
+  "Dywany i chodniki",
+  "Kurz z półek i komód",
+  "Parapety",
+  "Drzwi i klamki",
+  "Kanapa i fotele",
+  "Ułożenie rzeczy na miejsce",
+  "Wymiana pościeli",
+  "Odkurzenie pod łóżkiem",
+  "Pranie",
+  "Suszenie lub rozwieszenie prania",
+  "Składanie ubrań",
+  "Mycie okien",
+  "Ramy okienne i parapety zewnętrzne",
+  "Lodówka - szybki przegląd",
+  "Podlanie kwiatów",
+]);
 
 const defaultRecipes = [
   {
@@ -1307,9 +1363,11 @@ function loadState() {
 
 function normalizeState(input) {
   const seed = createSeedState();
-  const settings = { ...seed.settings, ...(input.settings || {}) };
+  const inputSettings = input.settings || {};
+  const settings = { ...seed.settings, ...inputSettings };
   settings.tasks = normalizeTaskCatalog(settings.tasks || seed.settings.tasks);
-  settings.cleaningTasks = normalizeCleaningCatalog(settings.cleaningTasks || seed.settings.cleaningTasks);
+  settings.cleaningCatalogVersion = CLEANING_CATALOG_VERSION;
+  settings.cleaningTasks = mergeCleaningCatalog(inputSettings.cleaningTasks, inputSettings.cleaningCatalogVersion);
   const entries = (input.entries || seed.entries).map((entry) => ({
     date: entry.date,
     start: entry.start || "",
@@ -1354,7 +1412,16 @@ function normalizeCleaningCatalog(tasks) {
     if (!cleanName) continue;
     map.set(cleanName.toLowerCase(), { group: group || "Inne", name: cleanName });
   }
-  return [...map.values()].sort((a, b) => a.group.localeCompare(b.group, "pl") || a.name.localeCompare(b.name, "pl"));
+  return [...map.values()];
+}
+
+function mergeCleaningCatalog(tasks, version = 0) {
+  const incoming = normalizeCleaningCatalog(tasks || []);
+  if (Number(version || 0) >= CLEANING_CATALOG_VERSION) {
+    return incoming.length ? incoming : normalizeCleaningCatalog(defaultCleaningTasks);
+  }
+  const custom = incoming.filter((task) => !legacyCleaningTaskNames.has(task.name));
+  return normalizeCleaningCatalog([...defaultCleaningTasks, ...custom]);
 }
 
 function normalizeStatus(status) {
@@ -1450,6 +1517,7 @@ function createSeedState() {
     shoppingAdvance: 400,
     tasks: defaultTasks,
     cleaningTasks: defaultCleaningTasks,
+    cleaningCatalogVersion: CLEANING_CATALOG_VERSION,
   };
   const entries = buildDays("2026-04-27", 70).map((date) => ({
     date,
@@ -1488,7 +1556,7 @@ function createSeedState() {
       "Pranie",
       "Obiad (schab w sosie z porem i marchewką)",
     ],
-    cleaningTasks: ["Blaty, zlew i bateria", "Odkurzanie całego domu", "Mycie podłóg", "Pranie"],
+    cleaningTasks: ["Umycie blatów i zlewu", "Odkurzenie całego domu", "Umycie podłogi w całym domu"],
     recipeName: "Schab w sosie z porem i marchewką",
     meal: "Według zakładki Menu",
   });
