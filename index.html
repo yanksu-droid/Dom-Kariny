@@ -771,7 +771,9 @@ button {
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
     <script>
 const STORAGE_KEY = "karina-home-app-v1";
+const CLIENT_ID_KEY = "karina-home-app-client-id";
 const FIRESTORE_STATE_PATH = "apps/karina/state/main";
+const REMOTE_WRITE_DELAY = 1000;
 
 const firebaseConfig = {
   apiKey: "AIzaSyDPut_xH290lLMvT8OosokILQPwwzP0DaI",
@@ -855,6 +857,7 @@ let sync = {
   applyingRemote: false,
   remoteReady: false,
   writeTimer: null,
+  clientId: loadClientId(),
   lastError: "",
 };
 
@@ -973,12 +976,19 @@ function subscribeRemoteState() {
         return;
       }
 
-      const remoteState = snapshot.data()?.data;
+      const snapshotData = snapshot.data() || {};
+      const remoteState = snapshotData.data;
       if (!remoteState) {
         sync.status = "syncError";
         sync.lastError = "Dokument Firebase nie zawiera danych aplikacji.";
         setSaveState(currentSyncLabel(), true);
         render();
+        return;
+      }
+
+      if (snapshotData.updatedByClient === sync.clientId && sync.remoteReady) {
+        sync.status = "online";
+        setSaveState(currentSyncLabel(), true);
         return;
       }
 
@@ -1038,7 +1048,7 @@ function queueRemoteSave(immediate = false) {
     pushRemoteState();
     return;
   }
-  sync.writeTimer = window.setTimeout(pushRemoteState, 700);
+  sync.writeTimer = window.setTimeout(pushRemoteState, REMOTE_WRITE_DELAY);
 }
 
 async function pushRemoteState() {
@@ -1049,6 +1059,7 @@ async function pushRemoteState() {
         data: normalizeState(state),
         updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: sync.user.email || "",
+        updatedByClient: sync.clientId,
       },
       { merge: true },
     );
@@ -1137,6 +1148,15 @@ function storageSet(key, value) {
   } catch {
     return false;
   }
+}
+
+function loadClientId() {
+  const existing = storageGet(CLIENT_ID_KEY);
+  if (existing) return existing;
+  const generated =
+    window.crypto?.randomUUID?.() || `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  storageSet(CLIENT_ID_KEY, generated);
+  return generated;
 }
 
 function setSaveState(text, sticky = false) {
