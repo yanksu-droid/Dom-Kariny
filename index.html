@@ -763,7 +763,7 @@ button {
 
 .cleaning-check {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
   padding: 11px 12px;
@@ -771,11 +771,19 @@ button {
   font-weight: 700;
 }
 
+.cleaning-check.is-selected {
+  background: #f7fbff;
+}
+
 .cleaning-check input {
   width: 20px;
   height: 20px;
   margin: 1px 0 0;
   accent-color: var(--primary);
+}
+
+.cleaning-remove-button {
+  align-self: center;
 }
 
 @media (max-width: 520px) {
@@ -792,6 +800,15 @@ button {
   .clone-panel .action-button,
   .cleaning-panel > header .action-button {
     width: 100%;
+  }
+
+  .cleaning-check {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .cleaning-remove-button {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 
@@ -2060,10 +2077,11 @@ function renderSprzatanie() {
                     ${tasks
                       .map(
                         (task) => `
-                          <label class="cleaning-check">
-                            <input type="checkbox" data-cleaning-task="${escapeAttr(task.name)}" ${selected.has(task.name) ? "checked" : ""} />
+                          <div class="cleaning-check ${selected.has(task.name) ? "is-selected" : ""}">
+                            <input type="checkbox" data-cleaning-task="${escapeAttr(task.name)}" aria-label="Wybierz do sprzątania: ${escapeAttr(task.name)}" ${selected.has(task.name) ? "checked" : ""} />
                             <span>${escapeHtml(task.name)}</span>
-                          </label>
+                            ${selected.has(task.name) ? `<button class="action-button compact danger cleaning-remove-button" type="button" data-remove-cleaning-task="${escapeAttr(task.name)}">Usuń</button>` : ""}
+                          </div>
                         `,
                       )
                       .join("")}
@@ -2328,6 +2346,19 @@ function bindCleaningControls(root) {
       entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
       saveState();
       render();
+    });
+  });
+
+  root.querySelectorAll("[data-remove-cleaning-task]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const scrollPosition = { x: window.scrollX || 0, y: window.scrollY || 0 };
+      const entry = getEntry(selectedDate);
+      const task = button.dataset.removeCleaningTask || "";
+      entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks || []).filter((item) => item !== task);
+      entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
+      saveState();
+      render();
+      requestAnimationFrame(() => window.scrollTo(scrollPosition.x, scrollPosition.y));
     });
   });
 
