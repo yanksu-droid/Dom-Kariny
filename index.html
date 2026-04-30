@@ -1,0 +1,1718 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d5c63" />
+    <title>Dom Kariny</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2096%2096%22%20role%3D%22img%22%20aria-label%3D%22Dom%20Kariny%22%3E%0A%20%20%3Crect%20width%3D%2296%22%20height%3D%2296%22%20rx%3D%2220%22%20fill%3D%22%230d5c63%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M20%2047%2048%2024l28%2023v29a6%206%200%200%201-6%206H26a6%206%200%200%201-6-6V47Z%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M36%2082V58a4%204%200%200%201%204-4h16a4%204%200%200%201%204%204v24%22%20fill%3D%22%23dff2ee%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M30%2045h36%22%20stroke%3D%22%230d5c63%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2266%22%20cy%3D%2230%22%20r%3D%227%22%20fill%3D%22%23f5b84b%22%2F%3E%0A%3C%2Fsvg%3E%0A" type="image/svg+xml" />
+    <style>
+:root {
+  --bg: #f4f7f6;
+  --surface: #ffffff;
+  --surface-2: #eef6f4;
+  --ink: #172026;
+  --muted: #66737b;
+  --line: #d7e1df;
+  --primary: #0d5c63;
+  --primary-2: #0f747b;
+  --blue: #2563eb;
+  --amber: #d97706;
+  --green: #15803d;
+  --danger: #b42318;
+  --input: #fbfcfd;
+  --shadow: 0 14px 36px rgba(23, 32, 38, 0.09);
+  color-scheme: light;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background: rgba(244, 247, 246, 0.94);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand img {
+  flex: 0 0 auto;
+  border-radius: 8px;
+}
+
+.brand p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.save-state {
+  min-width: 74px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.app-main {
+  width: min(100%, 940px);
+  margin: 0 auto;
+  padding: 14px;
+}
+
+.tabbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 30px rgba(23, 32, 38, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.tab {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.tab.is-active {
+  background: var(--surface-2);
+  color: var(--primary);
+}
+
+.tab-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+}
+
+.tab-icon svg {
+  width: 21px;
+  height: 21px;
+  stroke: currentColor;
+}
+
+.toolbar,
+.summary-grid,
+.settings-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.toolbar {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.date-control,
+.month-control,
+.search-control {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.icon-button,
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.icon-button {
+  width: 44px;
+  padding: 0;
+}
+
+.action-button {
+  padding: 0 12px;
+}
+
+.action-button.primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.action-button.danger {
+  border-color: #f0c7c2;
+  background: #fff6f5;
+  color: var(--danger);
+}
+
+.view-title {
+  margin: 0 0 12px;
+}
+
+.view-title.compact {
+  margin: 4px 0 0;
+}
+
+.view-title.compact h2 {
+  font-size: 1rem;
+}
+
+.view-title h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.view-title p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.metric {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 5px;
+  font-size: clamp(1rem, 6vw, 1.28rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.day-card,
+.calendar-panel,
+.list-card,
+.settlement-panel,
+.settings-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.day-card {
+  overflow: hidden;
+}
+
+.calendar-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.calendar-panel header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.calendar-panel header strong {
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-day {
+  display: grid;
+  min-width: 0;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.calendar-day.muted {
+  color: #a6b1b7;
+  background: #f7faf9;
+}
+
+.calendar-day.work {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.calendar-day.selected {
+  outline: 3px solid #f5b84b;
+  outline-offset: 1px;
+}
+
+.calendar-day span {
+  line-height: 1;
+}
+
+.day-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.day-heading strong {
+  font-size: 1.02rem;
+}
+
+.day-heading span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.88rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  min-height: 54px;
+  background: var(--surface);
+}
+
+.field label {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  color: #23343a;
+  font-weight: 800;
+}
+
+.field input,
+.field select,
+.field textarea {
+  min-width: 0;
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--input);
+  color: var(--ink);
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field.tall textarea {
+  min-height: 92px;
+}
+
+.recipe-preview {
+  padding: 12px;
+  background: #f7fbff;
+  border-bottom: 1px solid var(--line);
+}
+
+.recipe-preview strong {
+  display: block;
+  color: var(--blue);
+}
+
+.recipe-preview p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.list-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.list-card {
+  padding: 12px;
+}
+
+.list-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.list-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.list-card p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f8fafb;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chip.good {
+  border-color: #bfe3ca;
+  background: #f0f9f2;
+  color: var(--green);
+}
+
+.chip.warn {
+  border-color: #f7d7a8;
+  background: #fff8ed;
+  color: var(--amber);
+}
+
+.settlement-panel,
+.settings-panel {
+  padding: 14px;
+}
+
+.settlement-panel h3,
+.settings-panel h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.settlement-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.settlement-table th,
+.settlement-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.settlement-table th:last-child,
+.settlement-table td:last-child {
+  text-align: right;
+}
+
+.settings-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-field {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-field.full {
+  grid-column: 1 / -1;
+}
+
+.settings-field label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.settings-field input,
+.settings-field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--input);
+  color: var(--ink);
+}
+
+.settings-field textarea {
+  min-height: 210px;
+  resize: vertical;
+}
+
+.empty {
+  padding: 24px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  text-align: center;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .app-shell {
+    padding-bottom: 0;
+  }
+
+  .topbar {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .app-main {
+    padding: 22px;
+  }
+
+  .tabbar {
+    position: sticky;
+    top: 68px;
+    width: min(100% - 32px, 940px);
+    margin: 14px auto 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .field {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+
+  .list-stack.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+</style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2096%2096%22%20role%3D%22img%22%20aria-label%3D%22Dom%20Kariny%22%3E%0A%20%20%3Crect%20width%3D%2296%22%20height%3D%2296%22%20rx%3D%2220%22%20fill%3D%22%230d5c63%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M20%2047%2048%2024l28%2023v29a6%206%200%200%201-6%206H26a6%206%200%200%201-6-6V47Z%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M36%2082V58a4%204%200%200%201%204-4h16a4%204%200%200%201%204%204v24%22%20fill%3D%22%23dff2ee%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M30%2045h36%22%20stroke%3D%22%230d5c63%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2266%22%20cy%3D%2230%22%20r%3D%227%22%20fill%3D%22%23f5b84b%22%2F%3E%0A%3C%2Fsvg%3E%0A" alt="" width="36" height="36" />
+          <div>
+            <p>Dom</p>
+            <h1>Karina</h1>
+          </div>
+        </div>
+        <div class="save-state" id="saveState">Zapisano</div>
+      </header>
+
+      <nav class="tabbar" aria-label="Widoki">
+        <button class="tab is-active" type="button" data-view="telefon" aria-label="Dzień">
+          <span class="tab-icon" data-icon="phone"></span>
+          <span>Dzień</span>
+        </button>
+        <button class="tab" type="button" data-view="grafik" aria-label="Grafik">
+          <span class="tab-icon" data-icon="calendar"></span>
+          <span>Grafik</span>
+        </button>
+        <button class="tab" type="button" data-view="menu" aria-label="Menu">
+          <span class="tab-icon" data-icon="menu"></span>
+          <span>Menu</span>
+        </button>
+        <button class="tab" type="button" data-view="finanse" aria-label="Kwoty i zakupy">
+          <span class="tab-icon" data-icon="wallet"></span>
+          <span>Kwoty</span>
+        </button>
+        <button class="tab" type="button" data-view="ustawienia" aria-label="Ustawienia">
+          <span class="tab-icon" data-icon="settings"></span>
+          <span>Ustaw.</span>
+        </button>
+      </nav>
+
+      <main class="app-main" id="app" tabindex="-1"></main>
+    </div>
+
+    <input type="file" id="importFile" class="visually-hidden" accept="application/json" />
+    <script>
+const STORAGE_KEY = "karina-home-app-v1";
+
+const typeOptions = [
+  "Sprzątanie",
+  "Gotowanie",
+  "Sprzątanie + gotowanie",
+  "Sprzątanie + gotowanie + zakupy",
+  "Opieka nad dziećmi",
+  "Gotowanie + zakupy",
+  "Wolne",
+];
+
+const statusOptions = ["Plan", "Potwierdzone", "W trakcie", "Zrobione", "Odwołane"];
+
+const defaultTasks = [
+  "Kuchnia",
+  "Łazienki",
+  "Podłogi",
+  "Pranie",
+  "Świeże pieczywo & zakupy na obiad (schab, brokuł)",
+  "Uprzątnięcie całego domu + mycie podłóg",
+  "Obiad (schab w sosie z porem i marchewką)",
+  "Blaty, zlew, fronty szafek",
+  "Pełne mycie łazienek",
+  "Odkurzanie i mycie podłóg",
+  "Przygotowanie obiadu na 1-2 dni",
+  "Przejrzenie lodówki i dopisanie braków",
+  "Wymiana pościeli i ręczników",
+  "Kurz: półki, parapety, komody",
+  "Mycie okien",
+];
+
+const defaultRecipes = [
+  {
+    name: "Pierogi z mięsem",
+    ingredients: "pierogi z mięsem, śmietana lub masło, surówka",
+    steps: "Podgrzać pierogi na patelni albo w wodzie. Podać z prostą surówką.",
+    notes: "Sprawdzone na szybki obiad.",
+  },
+  {
+    name: "Schab w sosie z porem i marchewką",
+    ingredients: "schab, por, marchewka, śmietanka, ziemniaki lub kasza",
+    steps: "Podsmażyć mięso, dodać warzywa, podlać i dusić do miękkości. Zagęścić śmietanką.",
+    notes: "Dobre do przygotowania na 1-2 dni.",
+  },
+];
+
+const icons = {
+  phone:
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+  calendar:
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="5" width="18" height="16" rx="2"/></svg>',
+  menu:
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><path d="M8 7h8M8 11h8"/></svg>',
+  wallet:
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 7h18v12H3z"/><path d="M16 12h5v4h-5zM3 7l13-4v4"/></svg>',
+  settings:
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M3 12h3m12 0h3M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/></svg>',
+};
+
+let state = loadState();
+let activeView = "telefon";
+let selectedDate = pickInitialDate();
+let selectedMonth = selectedDate.slice(0, 7);
+
+const app = document.querySelector("#app");
+const saveStateEl = document.querySelector("#saveState");
+const importFile = document.querySelector("#importFile");
+
+document.querySelectorAll(".tab-icon").forEach((node) => {
+  node.innerHTML = icons[node.dataset.icon] || "";
+});
+
+document.querySelector(".tabbar").addEventListener("click", (event) => {
+  const button = event.target.closest(".tab");
+  if (!button) return;
+  activeView = button.dataset.view;
+  render();
+});
+
+importFile.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const imported = JSON.parse(text);
+    if (!Array.isArray(imported.entries) || !imported.settings) throw new Error("Bad file");
+    state = normalizeState(imported);
+    selectedDate = state.entries[0]?.date || todayISO();
+    selectedMonth = selectedDate.slice(0, 7);
+    saveState();
+    render();
+  } catch {
+    setSaveState("Nie wczytano");
+  } finally {
+    importFile.value = "";
+  }
+});
+
+render();
+
+function loadState() {
+  const raw = storageGet(STORAGE_KEY);
+  if (!raw) return createSeedState();
+  try {
+    return normalizeState(JSON.parse(raw));
+  } catch {
+    return createSeedState();
+  }
+}
+
+function normalizeState(input) {
+  const seed = createSeedState();
+  const settings = { ...seed.settings, ...(input.settings || {}) };
+  const entries = (input.entries || seed.entries).map((entry) => ({
+    date: entry.date,
+    start: entry.start || "",
+    end: entry.end || "",
+    type: entry.type || "Wolne",
+    status: entry.status || "",
+    tasks: normalizeTasks(entry.tasks),
+    recipeName: entry.recipeName || "",
+    meal: entry.meal || "",
+    shopping: entry.shopping || "",
+    shoppingCost: Number(entry.shoppingCost || 0),
+    notes: entry.notes || "",
+  }));
+  return {
+    settings,
+    entries,
+    recipes: normalizeRecipes(input.recipes || seed.recipes),
+  };
+}
+
+function normalizeTasks(tasks) {
+  const out = Array.isArray(tasks) ? tasks.slice(0, 4) : [];
+  while (out.length < 4) out.push("");
+  return out.map((task) => task || "");
+}
+
+function normalizeRecipes(recipes) {
+  const map = new Map();
+  for (const recipe of recipes || []) {
+    const name = String(recipe.name || "").trim();
+    if (!name) continue;
+    map.set(name.toLowerCase(), {
+      name,
+      ingredients: recipe.ingredients || "",
+      steps: recipe.steps || "",
+      notes: recipe.notes || "",
+    });
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pl"));
+}
+
+function saveState() {
+  setSaveState(storageSet(STORAGE_KEY, JSON.stringify(state)) ? "Zapisano" : "Bez zapisu");
+}
+
+function storageGet(key) {
+  try {
+    return window.localStorage?.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    window.localStorage?.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setSaveState(text) {
+  saveStateEl.textContent = text;
+  window.clearTimeout(setSaveState.timer);
+  if (text !== "Zapisano") {
+    setSaveState.timer = window.setTimeout(() => (saveStateEl.textContent = "Zapisano"), 1300);
+  }
+}
+
+function createSeedState() {
+  const settings = {
+    hourlyRate: 45,
+    shoppingAdvance: 400,
+    tasks: defaultTasks,
+  };
+  const entries = buildDays("2026-04-27", 70).map((date) => ({
+    date,
+    start: "",
+    end: "",
+    type: "Wolne",
+    status: "",
+    tasks: ["", "", "", ""],
+    recipeName: "",
+    meal: "",
+    shopping: "",
+    shoppingCost: 0,
+    notes: "",
+  }));
+
+  patchEntry(entries, "2026-04-28", {
+    start: "08:00",
+    end: "11:00",
+    type: "Gotowanie + zakupy",
+    status: "Plan",
+    recipeName: "Pierogi z mięsem",
+    meal: "70-80 pierogów z mięsem, poznanie sklepów na rynku, Biedronki i sklepu Promocja",
+    shopping: "Lista + koszt zakupów",
+    notes: "przepis Kariny",
+  });
+
+  patchEntry(entries, "2026-05-04", {
+    start: "08:00",
+    end: "14:00",
+    type: "Sprzątanie + gotowanie + zakupy",
+    status: "Plan",
+    tasks: [
+      "Świeże pieczywo & zakupy na obiad (schab, brokuł)",
+      "Uprzątnięcie całego domu + mycie podłóg",
+      "Pranie",
+      "Obiad (schab w sosie z porem i marchewką)",
+    ],
+    recipeName: "Schab w sosie z porem i marchewką",
+    meal: "Według zakładki Menu",
+  });
+
+  for (const date of [
+    "2026-05-06",
+    "2026-05-08",
+    "2026-05-11",
+    "2026-05-13",
+    "2026-05-15",
+    "2026-05-18",
+    "2026-05-20",
+    "2026-05-22",
+    "2026-05-25",
+    "2026-05-27",
+  ]) {
+    patchEntry(entries, date, {
+      start: "09:00",
+      end: "13:00",
+      type: "Sprzątanie + gotowanie",
+      status: "Plan",
+      tasks: ["Kuchnia", "Łazienki", "Podłogi", "Pranie"],
+      meal: "Według zakładki Menu",
+    });
+  }
+
+  return { settings, entries, recipes: defaultRecipes };
+}
+
+function patchEntry(entries, date, patch) {
+  const entry = entries.find((item) => item.date === date);
+  if (!entry) return;
+  Object.assign(entry, patch);
+  entry.tasks = normalizeTasks(entry.tasks);
+}
+
+function buildDays(startDate, count) {
+  const start = new Date(`${startDate}T12:00:00`);
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return toISO(date);
+  });
+}
+
+function pickInitialDate() {
+  const today = todayISO();
+  return state.entries.find((entry) => entry.date >= today)?.date || state.entries[0]?.date || today;
+}
+
+function render() {
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.view === activeView);
+  });
+  const renderers = {
+    telefon: renderTelefon,
+    grafik: renderGrafik,
+    menu: renderMenu,
+    finanse: renderFinanse,
+    zakupy: renderFinanse,
+    rozliczenia: renderFinanse,
+    ustawienia: renderUstawienia,
+  };
+  app.innerHTML = (renderers[activeView] || renderTelefon)();
+  bindView();
+}
+
+function renderTelefon() {
+  const entry = getEntry(selectedDate);
+  const totals = entryTotals(entry);
+  const selectedRecipe = findRecipe(entry.recipeName);
+  return `
+    <section class="toolbar" aria-label="Data">
+      <button class="icon-button" type="button" data-step-day="-1" aria-label="Poprzedni dzień">${arrowLeft()}</button>
+      <input class="date-control" type="date" value="${escapeAttr(selectedDate)}" data-date-picker />
+      <button class="icon-button" type="button" data-step-day="1" aria-label="Następny dzień">${arrowRight()}</button>
+    </section>
+    ${renderCalendar(selectedMonth)}
+    ${renderSummary([
+      ["Godziny", formatHours(totals.hours)],
+      ["Praca", money(totals.workPay)],
+      ["Zakupy", money(entry.shoppingCost)],
+      ["Status", entry.status || "Brak"],
+    ])}
+    <section class="day-card">
+      <header class="day-heading">
+        <strong>${escapeHtml(longDate(entry.date))}</strong>
+        <span>${escapeHtml(dayName(entry.date))}</span>
+      </header>
+      <div class="form-grid">
+        ${inputField("Od", "start", entry.start, "time")}
+        ${inputField("Do", "end", entry.end, "time")}
+        ${selectField("Typ", "type", entry.type, typeOptions)}
+        ${selectField("Status", "status", entry.status, ["", ...statusOptions])}
+        ${selectField("Zad. 1", "task-0", entry.tasks[0], ["", ...state.settings.tasks])}
+        ${selectField("Zad. 2", "task-1", entry.tasks[1], ["", ...state.settings.tasks])}
+        ${selectField("Zad. 3", "task-2", entry.tasks[2], ["", ...state.settings.tasks])}
+        ${selectField("Zad. 4", "task-3", entry.tasks[3], ["", ...state.settings.tasks])}
+        ${selectField("Przepis", "recipeName", entry.recipeName, ["", ...state.recipes.map((recipe) => recipe.name)])}
+        ${selectedRecipe ? renderRecipePreview(selectedRecipe) : ""}
+        ${textareaField("Obiad", "meal", entry.meal, true)}
+        ${textareaField("Zakupy", "shopping", entry.shopping, true)}
+        ${inputField("Koszt", "shoppingCost", entry.shoppingCost || "", "number", "0.01")}
+        ${textareaField("Notatki", "notes", entry.notes)}
+      </div>
+    </section>
+  `;
+}
+
+function renderCalendar(month) {
+  const first = new Date(`${month}-01T12:00:00`);
+  const firstWeekday = (first.getDay() + 6) % 7;
+  const gridStart = new Date(first);
+  gridStart.setDate(first.getDate() - firstWeekday);
+  const cells = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    const iso = toISO(date);
+    const entry = state.entries.find((item) => item.date === iso) || { date: iso, type: "Wolne", status: "" };
+    const inMonth = iso.startsWith(month);
+    const work = isWorkDay(entry);
+    const selected = iso === selectedDate;
+    return `
+      <button class="calendar-day ${inMonth ? "" : "muted"} ${work ? "work" : ""} ${selected ? "selected" : ""}" type="button" data-calendar-date="${iso}" aria-label="${escapeAttr(longDate(iso))}">
+        <span>${date.getDate()}</span>
+      </button>
+    `;
+  }).join("");
+
+  return `
+    <section class="calendar-panel">
+      <header>
+        <button class="icon-button" type="button" data-step-month="-1" aria-label="Poprzedni miesiąc">${arrowLeft()}</button>
+        <strong>${escapeHtml(monthLabel(month))}</strong>
+        <button class="icon-button" type="button" data-step-month="1" aria-label="Następny miesiąc">${arrowRight()}</button>
+      </header>
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span>
+      </div>
+      <div class="calendar-grid">${cells}</div>
+    </section>
+  `;
+}
+
+function isWorkDay(entry) {
+  return entry.type && entry.type !== "Wolne" && entry.status !== "Odwołane";
+}
+
+function renderRecipePreview(recipe) {
+  return `
+    <div class="recipe-preview">
+      <strong>${escapeHtml(recipe.name)}</strong>
+      ${recipe.ingredients ? `<p>${escapeHtml(recipe.ingredients)}</p>` : ""}
+    </div>
+  `;
+}
+
+function renderGrafik() {
+  const entries = state.entries;
+  const planned = entries.filter((entry) => entry.status && entry.status !== "Odwołane");
+  const hours = planned.reduce((sum, entry) => sum + entryHours(entry), 0);
+  return `
+    <section class="view-title">
+      <h2>Grafik</h2>
+      <p>${escapeHtml(monthLabel(selectedMonth))}</p>
+    </section>
+    ${renderSummary([
+      ["Wizyty", String(planned.length)],
+      ["Godziny", formatHours(hours)],
+      ["Do zapłaty", money(hours * Number(state.settings.hourlyRate || 0))],
+      ["Najbliżej", escapeHtml(nextPlannedDate() || "Brak")],
+    ])}
+    <section class="toolbar" aria-label="Szukaj">
+      <button class="icon-button" type="button" data-jump-today aria-label="Dzisiaj">${calendarMini()}</button>
+      <input class="search-control" type="search" placeholder="Szukaj" data-search />
+      <button class="icon-button" type="button" data-clear-search aria-label="Wyczyść">${xIcon()}</button>
+    </section>
+    <section class="list-stack" data-list="schedule">
+      ${renderScheduleList(entries)}
+    </section>
+  `;
+}
+
+function renderMenu() {
+  return `
+    <section class="view-title">
+      <h2>Menu</h2>
+      <p>Przepisy zapisane na stałe w aplikacji</p>
+    </section>
+    <section class="settings-panel">
+      <h3>Dodaj albo zaktualizuj przepis</h3>
+      <div class="settings-grid">
+        <div class="settings-field full">
+          <label for="recipeName">Nazwa</label>
+          <input id="recipeName" type="text" data-new-recipe="name" list="recipeNames" />
+          <datalist id="recipeNames">
+            ${state.recipes.map((recipe) => `<option value="${escapeAttr(recipe.name)}"></option>`).join("")}
+          </datalist>
+        </div>
+        <div class="settings-field full">
+          <label for="recipeIngredients">Składniki</label>
+          <textarea id="recipeIngredients" data-new-recipe="ingredients"></textarea>
+        </div>
+        <div class="settings-field full">
+          <label for="recipeSteps">Przygotowanie</label>
+          <textarea id="recipeSteps" data-new-recipe="steps"></textarea>
+        </div>
+        <div class="settings-field full">
+          <label for="recipeNotes">Uwagi</label>
+          <textarea id="recipeNotes" data-new-recipe="notes"></textarea>
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="action-button primary" type="button" data-save-recipe>Zapisz przepis</button>
+        <button class="action-button" type="button" data-fill-recipe>Wczytaj po nazwie</button>
+      </div>
+    </section>
+    <section class="list-stack two-col">
+      ${state.recipes.length ? state.recipes.map(renderRecipeCard).join("") : '<div class="empty">Brak przepisów</div>'}
+    </section>
+  `;
+}
+
+function renderRecipeCard(recipe) {
+  return `
+    <article class="list-card">
+      <header>
+        <div>
+          <h3>${escapeHtml(recipe.name)}</h3>
+          ${recipe.notes ? `<p>${escapeHtml(recipe.notes)}</p>` : ""}
+        </div>
+        <span class="chip">Menu</span>
+      </header>
+      ${recipe.ingredients ? `<p><strong>Składniki:</strong> ${escapeHtml(recipe.ingredients)}</p>` : ""}
+      ${recipe.steps ? `<p><strong>Przygotowanie:</strong> ${escapeHtml(recipe.steps)}</p>` : ""}
+      <div class="card-actions">
+        <button class="action-button" type="button" data-use-recipe="${escapeAttr(recipe.name)}">Wybierz do dnia</button>
+        <button class="action-button" type="button" data-edit-recipe="${escapeAttr(recipe.name)}">Edytuj</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderFinanse() {
+  const monthEntries = state.entries.filter((entry) => entry.date.startsWith(selectedMonth));
+  const shoppingEntries = monthEntries.filter(
+    (entry) => entry.shopping || Number(entry.shoppingCost || 0) > 0 || entry.type.toLowerCase().includes("zakupy"),
+  );
+  const hours = monthEntries.reduce((sum, entry) => sum + entryHours(entry), 0);
+  const workPay = hours * Number(state.settings.hourlyRate || 0);
+  const shopping = monthEntries.reduce((sum, entry) => sum + Number(entry.shoppingCost || 0), 0);
+  const advance = Number(state.settings.shoppingAdvance || 0);
+  const extraShopping = Math.max(shopping - advance, 0);
+  return `
+    <section class="toolbar" aria-label="Miesiąc">
+      <button class="icon-button" type="button" data-step-month="-1" aria-label="Poprzedni miesiąc">${arrowLeft()}</button>
+      <input class="month-control" type="month" value="${escapeAttr(selectedMonth)}" data-month-picker />
+      <button class="icon-button" type="button" data-step-month="1" aria-label="Następny miesiąc">${arrowRight()}</button>
+    </section>
+    ${renderSummary([
+      ["Godziny", formatHours(hours)],
+      ["Praca", money(workPay)],
+      ["Zakupy", money(shopping)],
+      ["Razem", money(workPay + extraShopping)],
+    ])}
+    <section class="settlement-panel">
+      <h3>Kwoty i zakupy</h3>
+      <table class="settlement-table">
+        <tbody>
+          <tr><td>Stawka</td><td>${money(state.settings.hourlyRate)} / h</td></tr>
+          <tr><td>Koszt pracy</td><td>${money(workPay)}</td></tr>
+          <tr><td>Zaliczka zakupowa</td><td>${money(advance)}</td></tr>
+          <tr><td>Wydano z zaliczki</td><td>${money(shopping)}</td></tr>
+          <tr><td>Pozostało z zaliczki</td><td>${money(Math.max(advance - shopping, 0))}</td></tr>
+          <tr><td>Dopłata za zakupy</td><td>${money(extraShopping)}</td></tr>
+          <tr><th>Do przekazania</th><th>${money(workPay + extraShopping)}</th></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="list-stack">
+      <div class="view-title compact">
+        <h2>Zakupy w miesiącu</h2>
+      </div>
+      ${
+        shoppingEntries.length
+          ? shoppingEntries.map(renderShoppingCard).join("")
+          : '<div class="empty">Brak zakupów w tym miesiącu</div>'
+      }
+    </section>
+  `;
+}
+
+function renderUstawienia() {
+  return `
+    <section class="view-title">
+      <h2>Ustawienia</h2>
+      <p>Dane</p>
+    </section>
+    <section class="settings-panel">
+      <div class="settings-grid">
+        <div class="settings-field">
+          <label for="hourlyRate">Stawka PLN/h</label>
+          <input id="hourlyRate" type="number" min="0" step="1" value="${escapeAttr(state.settings.hourlyRate)}" data-setting="hourlyRate" />
+        </div>
+        <div class="settings-field">
+          <label for="shoppingAdvance">Zaliczka</label>
+          <input id="shoppingAdvance" type="number" min="0" step="1" value="${escapeAttr(state.settings.shoppingAdvance)}" data-setting="shoppingAdvance" />
+        </div>
+        <div class="settings-field full">
+          <label for="taskList">Lista zadań</label>
+          <textarea id="taskList" data-setting="tasksText">${escapeHtml(state.settings.tasks.join("\n"))}</textarea>
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="action-button primary" type="button" data-export-json>Eksport JSON</button>
+        <button class="action-button" type="button" data-export-csv>Eksport CSV</button>
+        <button class="action-button" type="button" data-import-json>Import JSON</button>
+        <button class="action-button danger" type="button" data-reset>Reset</button>
+      </div>
+    </section>
+  `;
+}
+
+function bindView() {
+  app.querySelectorAll("[data-step-day]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedDate = shiftDate(selectedDate, Number(button.dataset.stepDay));
+      selectedMonth = selectedDate.slice(0, 7);
+      ensureEntry(selectedDate);
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-step-month]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMonth = shiftMonth(selectedMonth, Number(button.dataset.stepMonth));
+      if (activeView === "telefon" && !selectedDate.startsWith(selectedMonth)) selectedDate = `${selectedMonth}-01`;
+      ensureEntry(selectedDate);
+      render();
+    });
+  });
+
+  app.querySelector("[data-date-picker]")?.addEventListener("change", (event) => {
+    selectedDate = event.target.value;
+    selectedMonth = selectedDate.slice(0, 7);
+    ensureEntry(selectedDate);
+    render();
+  });
+
+  app.querySelector("[data-month-picker]")?.addEventListener("change", (event) => {
+    selectedMonth = event.target.value;
+    render();
+  });
+
+  app.querySelectorAll("[data-calendar-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedDate = button.dataset.calendarDate;
+      selectedMonth = selectedDate.slice(0, 7);
+      ensureEntry(selectedDate);
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-field]").forEach((field) => {
+    field.addEventListener("input", updateEntryFromField);
+    field.addEventListener("change", updateEntryFromField);
+  });
+
+  bindEditButtons(app);
+  bindRecipeButtons(app);
+
+  app.querySelector("[data-search]")?.addEventListener("input", (event) => {
+    const list = app.querySelector('[data-list="schedule"]');
+    list.innerHTML = renderScheduleList(state.entries, event.target.value);
+    bindEditButtons(list);
+  });
+
+  app.querySelector("[data-clear-search]")?.addEventListener("click", () => {
+    const search = app.querySelector("[data-search]");
+    search.value = "";
+    app.querySelector('[data-list="schedule"]').innerHTML = renderScheduleList(state.entries);
+    bindEditButtons(app.querySelector('[data-list="schedule"]'));
+  });
+
+  app.querySelector("[data-jump-today]")?.addEventListener("click", () => {
+    selectedDate = pickInitialDate();
+    selectedMonth = selectedDate.slice(0, 7);
+    activeView = "telefon";
+    render();
+  });
+
+  app.querySelectorAll("[data-setting]").forEach((field) => {
+    field.addEventListener("change", updateSettingFromField);
+    field.addEventListener("input", updateSettingFromField);
+  });
+
+  app.querySelector("[data-export-json]")?.addEventListener("click", exportJson);
+  app.querySelector("[data-export-csv]")?.addEventListener("click", exportCsv);
+  app.querySelector("[data-import-json]")?.addEventListener("click", () => importFile.click());
+  app.querySelector("[data-reset]")?.addEventListener("click", resetData);
+}
+
+function bindEditButtons(root) {
+  root.querySelectorAll("[data-edit-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedDate = button.dataset.editDate;
+      selectedMonth = selectedDate.slice(0, 7);
+      activeView = "telefon";
+      render();
+    });
+  });
+}
+
+function bindRecipeButtons(root) {
+  root.querySelector("[data-save-recipe]")?.addEventListener("click", saveRecipeFromForm);
+  root.querySelector("[data-fill-recipe]")?.addEventListener("click", fillRecipeFormFromName);
+  root.querySelectorAll("[data-use-recipe]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = getEntry(selectedDate);
+      const recipe = findRecipe(button.dataset.useRecipe);
+      entry.recipeName = recipe?.name || "";
+      if (recipe && (!entry.meal || entry.meal === "Według zakładki Menu")) entry.meal = recipe.name;
+      saveState();
+      activeView = "telefon";
+      render();
+    });
+  });
+  root.querySelectorAll("[data-edit-recipe]").forEach((button) => {
+    button.addEventListener("click", () => {
+      fillRecipeForm(button.dataset.editRecipe);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+}
+
+function updateEntryFromField(event) {
+  const entry = getEntry(selectedDate);
+  const field = event.target.dataset.field;
+  if (field.startsWith("task-")) {
+    entry.tasks[Number(field.split("-")[1])] = event.target.value;
+  } else if (field === "shoppingCost") {
+    entry.shoppingCost = Number(event.target.value || 0);
+  } else if (field === "recipeName") {
+    entry.recipeName = event.target.value;
+    const recipe = findRecipe(entry.recipeName);
+    if (recipe && (!entry.meal || entry.meal === "Według zakładki Menu")) entry.meal = recipe.name;
+    saveState();
+    render();
+    return;
+  } else {
+    entry[field] = event.target.value;
+  }
+  saveState();
+}
+
+function updateSettingFromField(event) {
+  const setting = event.target.dataset.setting;
+  if (setting === "tasksText") {
+    state.settings.tasks = event.target.value
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  } else {
+    state.settings[setting] = Number(event.target.value || 0);
+  }
+  saveState();
+}
+
+function saveRecipeFromForm() {
+  const recipe = readRecipeForm();
+  if (!recipe.name) {
+    setSaveState("Brak nazwy");
+    return;
+  }
+  const existing = state.recipes.find((item) => item.name.toLowerCase() === recipe.name.toLowerCase());
+  if (existing) {
+    Object.assign(existing, recipe);
+  } else {
+    state.recipes.push(recipe);
+  }
+  state.recipes = normalizeRecipes(state.recipes);
+  saveState();
+  render();
+}
+
+function readRecipeForm() {
+  const get = (name) => app.querySelector(`[data-new-recipe="${name}"]`)?.value.trim() || "";
+  return {
+    name: get("name"),
+    ingredients: get("ingredients"),
+    steps: get("steps"),
+    notes: get("notes"),
+  };
+}
+
+function fillRecipeFormFromName() {
+  const name = app.querySelector('[data-new-recipe="name"]')?.value || "";
+  fillRecipeForm(name);
+}
+
+function fillRecipeForm(name) {
+  const recipe = findRecipe(name);
+  if (!recipe) return;
+  app.querySelector('[data-new-recipe="name"]').value = recipe.name;
+  app.querySelector('[data-new-recipe="ingredients"]').value = recipe.ingredients;
+  app.querySelector('[data-new-recipe="steps"]').value = recipe.steps;
+  app.querySelector('[data-new-recipe="notes"]').value = recipe.notes;
+}
+
+function resetData() {
+  if (!window.confirm("Usunąć dane zapisane w tej przeglądarce?")) return;
+  state = createSeedState();
+  selectedDate = pickInitialDate();
+  selectedMonth = selectedDate.slice(0, 7);
+  saveState();
+  render();
+}
+
+function renderScheduleList(entries, query = "") {
+  const needle = query.trim().toLowerCase();
+  const filtered = entries.filter((entry) => {
+    if (!needle) return true;
+    return [
+      longDate(entry.date),
+      dayName(entry.date),
+      entry.type,
+      entry.status,
+      entry.tasks.join(" "),
+      entry.recipeName,
+      entry.meal,
+      entry.shopping,
+      entry.notes,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(needle);
+  });
+  if (!filtered.length) return '<div class="empty">Brak wyników</div>';
+  return filtered.slice(0, 70).map(renderScheduleCard).join("");
+}
+
+function renderScheduleCard(entry) {
+  const totals = entryTotals(entry);
+  const tasks = entry.tasks.filter(Boolean);
+  return `
+    <article class="list-card">
+      <header>
+        <div>
+          <h3>${escapeHtml(longDate(entry.date))}</h3>
+          <p>${escapeHtml(dayName(entry.date))} · ${escapeHtml(entry.type || "Brak")}</p>
+        </div>
+        <span class="chip ${entry.status === "Plan" ? "warn" : entry.status ? "good" : ""}">${escapeHtml(entry.status || "Brak")}</span>
+      </header>
+      <div class="chip-row">
+        <span class="chip">${formatHours(totals.hours)}</span>
+        <span class="chip">${money(totals.workPay)}</span>
+        ${entry.start && entry.end ? `<span class="chip">${escapeHtml(entry.start)}-${escapeHtml(entry.end)}</span>` : ""}
+        ${entry.recipeName ? `<span class="chip">${escapeHtml(entry.recipeName)}</span>` : ""}
+      </div>
+      ${tasks.length ? `<p>${escapeHtml(tasks.join(", "))}</p>` : ""}
+      ${entry.meal ? `<p>${escapeHtml(entry.meal)}</p>` : ""}
+      <div class="card-actions">
+        <button class="action-button" type="button" data-edit-date="${escapeAttr(entry.date)}">Edytuj</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderShoppingCard(entry) {
+  return `
+    <article class="list-card">
+      <header>
+        <div>
+          <h3>${escapeHtml(longDate(entry.date))}</h3>
+          <p>${escapeHtml(entry.type || "Brak")}</p>
+        </div>
+        <span class="chip">${money(entry.shoppingCost || 0)}</span>
+      </header>
+      ${entry.shopping ? `<p>${escapeHtml(entry.shopping)}</p>` : ""}
+      ${entry.meal ? `<p>${escapeHtml(entry.meal)}</p>` : ""}
+      <div class="card-actions">
+        <button class="action-button" type="button" data-edit-date="${escapeAttr(entry.date)}">Edytuj</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderSummary(items) {
+  return `
+    <section class="summary-grid">
+      ${items
+        .map(
+          ([label, value]) => `
+            <div class="metric">
+              <span>${escapeHtml(label)}</span>
+              <strong>${value}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+    </section>
+  `;
+}
+
+function inputField(label, field, value, type = "text", step = "") {
+  return `
+    <div class="field">
+      <label for="${field}">${escapeHtml(label)}</label>
+      <input id="${field}" type="${type}" ${step ? `step="${step}"` : ""} value="${escapeAttr(value)}" data-field="${field}" />
+    </div>
+  `;
+}
+
+function textareaField(label, field, value, tall = false) {
+  return `
+    <div class="field ${tall ? "tall" : ""}">
+      <label for="${field}">${escapeHtml(label)}</label>
+      <textarea id="${field}" data-field="${field}">${escapeHtml(value)}</textarea>
+    </div>
+  `;
+}
+
+function selectField(label, field, value, options) {
+  const normalized = options.includes(value) ? options : [value, ...options];
+  return `
+    <div class="field">
+      <label for="${field}">${escapeHtml(label)}</label>
+      <select id="${field}" data-field="${field}">
+        ${normalized
+          .map(
+            (option) =>
+              `<option value="${escapeAttr(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option || "Brak")}</option>`,
+          )
+          .join("")}
+      </select>
+    </div>
+  `;
+}
+
+function getEntry(date) {
+  return ensureEntry(date);
+}
+
+function ensureEntry(date) {
+  let entry = state.entries.find((item) => item.date === date);
+  if (!entry) {
+    entry = {
+      date,
+      start: "",
+      end: "",
+      type: "Wolne",
+      status: "",
+      tasks: ["", "", "", ""],
+      recipeName: "",
+      meal: "",
+      shopping: "",
+      shoppingCost: 0,
+      notes: "",
+    };
+    state.entries.push(entry);
+    state.entries.sort((a, b) => a.date.localeCompare(b.date));
+    saveState();
+  }
+  return entry;
+}
+
+function findRecipe(name) {
+  if (!name) return null;
+  return state.recipes.find((recipe) => recipe.name.toLowerCase() === String(name).toLowerCase()) || null;
+}
+
+function entryTotals(entry) {
+  const hours = entryHours(entry);
+  return {
+    hours,
+    workPay: hours * Number(state.settings.hourlyRate || 0),
+  };
+}
+
+function entryHours(entry) {
+  if (entry.status === "Odwołane") return 0;
+  const start = parseTime(entry.start);
+  const end = parseTime(entry.end);
+  if (start === null || end === null || end <= start) return 0;
+  return Math.round((end - start) * 100) / 100;
+}
+
+function parseTime(value) {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours + minutes / 60;
+}
+
+function nextPlannedDate() {
+  const today = todayISO();
+  const next = state.entries.find((entry) => entry.date >= today && entryHours(entry) > 0);
+  return next ? longDate(next.date) : "";
+}
+
+function shiftDate(date, days) {
+  const value = new Date(`${date}T12:00:00`);
+  value.setDate(value.getDate() + days);
+  return toISO(value);
+}
+
+function shiftMonth(month, delta) {
+  const value = new Date(`${month}-01T12:00:00`);
+  value.setMonth(value.getMonth() + delta);
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function todayISO() {
+  return toISO(new Date());
+}
+
+function toISO(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function longDate(date) {
+  return new Intl.DateTimeFormat("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric" }).format(
+    new Date(`${date}T12:00:00`),
+  );
+}
+
+function dayName(date) {
+  return new Intl.DateTimeFormat("pl-PL", { weekday: "long" }).format(new Date(`${date}T12:00:00`));
+}
+
+function monthLabel(month) {
+  return new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric" }).format(
+    new Date(`${month}-01T12:00:00`),
+  );
+}
+
+function formatHours(value) {
+  return `${Number(value || 0).toFixed(1)} h`;
+}
+
+function money(value) {
+  return new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(Number(value || 0));
+}
+
+function exportJson() {
+  download(`karina-dom-${todayISO()}.json`, JSON.stringify(state, null, 2), "application/json");
+}
+
+function exportCsv() {
+  const header = [
+    "Data",
+    "Od",
+    "Do",
+    "Godziny",
+    "Typ",
+    "Status",
+    "Zadania",
+    "Przepis",
+    "Obiad",
+    "Zakupy",
+    "Koszt zakupów",
+    "Notatki",
+  ];
+  const rows = state.entries.map((entry) => [
+    entry.date,
+    entry.start,
+    entry.end,
+    entryHours(entry).toFixed(2),
+    entry.type,
+    entry.status,
+    entry.tasks.filter(Boolean).join(" | "),
+    entry.recipeName,
+    entry.meal,
+    entry.shopping,
+    Number(entry.shoppingCost || 0).toFixed(2),
+    entry.notes,
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+  download(`karina-grafik-${todayISO()}.csv`, csv, "text/csv;charset=utf-8");
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function download(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function arrowLeft() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>';
+}
+
+function arrowRight() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+}
+
+function xIcon() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+}
+
+function calendarMini() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="5" width="18" height="16" rx="2"/></svg>';
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+
+</script>
+  </body>
+</html>
