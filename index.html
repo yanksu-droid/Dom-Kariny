@@ -1848,8 +1848,8 @@ function renderCleaningDayPreview(entry) {
   const dayEntry = getEntry(entry.date || selectedDate);
   const tasks = normalizeCleaningSelection(dayEntry.cleaningTasks || []);
   const done = new Set(normalizeCleaningDone(dayEntry.cleaningDone || [], tasks));
-  const groupsByTask = cleaningGroupLookup();
-  const orderedTasks = [...tasks.filter((task) => !done.has(task)), ...tasks.filter((task) => done.has(task))];
+  const { groupsByTask, groupOrder, taskOrder } = cleaningCatalogMaps();
+  const orderedTasks = sortCleaningPreviewTasks(tasks, done, groupsByTask, groupOrder, taskOrder);
   const showEmpty = isCleaningPlanned(entry);
   if (!tasks.length && !showEmpty) return "";
   return `
@@ -2780,6 +2780,41 @@ function cleaningGroupLookup(tasks = state.settings.cleaningTasks) {
     groups.set(task.name.toLowerCase(), task.group || "Inne");
   }
   return groups;
+}
+
+function cleaningCatalogMaps(tasks = state.settings.cleaningTasks) {
+  const groupsByTask = new Map();
+  const groupOrder = new Map();
+  const taskOrder = new Map();
+  normalizeCleaningCatalog(tasks || []).forEach((task, index) => {
+    const group = task.group || "Inne";
+    const key = task.name.toLowerCase();
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size);
+    groupsByTask.set(key, group);
+    taskOrder.set(key, index);
+  });
+  return { groupsByTask, groupOrder, taskOrder };
+}
+
+function sortCleaningPreviewTasks(tasks, done, groupsByTask, groupOrder, taskOrder) {
+  return [...tasks].sort((a, b) => {
+    const aDone = done.has(a) ? 1 : 0;
+    const bDone = done.has(b) ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    const aKey = a.toLowerCase();
+    const bKey = b.toLowerCase();
+    const aGroup = groupsByTask.get(aKey) || "Inne";
+    const bGroup = groupsByTask.get(bKey) || "Inne";
+    const aGroupOrder = groupOrder.has(aGroup) ? groupOrder.get(aGroup) : Number.MAX_SAFE_INTEGER;
+    const bGroupOrder = groupOrder.has(bGroup) ? groupOrder.get(bGroup) : Number.MAX_SAFE_INTEGER;
+    if (aGroupOrder !== bGroupOrder) return aGroupOrder - bGroupOrder;
+    const groupCompare = aGroup.localeCompare(bGroup, "pl");
+    if (groupCompare) return groupCompare;
+    const aTaskOrder = taskOrder.has(aKey) ? taskOrder.get(aKey) : Number.MAX_SAFE_INTEGER;
+    const bTaskOrder = taskOrder.has(bKey) ? taskOrder.get(bKey) : Number.MAX_SAFE_INTEGER;
+    if (aTaskOrder !== bTaskOrder) return aTaskOrder - bTaskOrder;
+    return a.localeCompare(b, "pl");
+  });
 }
 
 function isCleaningPlanned(entry) {
