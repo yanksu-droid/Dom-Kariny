@@ -580,12 +580,28 @@ button {
   cursor: pointer;
 }
 
+.cleaning-preview-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cleaning-preview-group {
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.cleaning-preview-task {
+  min-width: 0;
+}
+
 .cleaning-preview-check.is-done {
   color: #8a969d;
   background: #f3f6f6;
 }
 
-.cleaning-preview-check.is-done span {
+.cleaning-preview-check.is-done .cleaning-preview-task {
   text-decoration: line-through;
   text-decoration-thickness: 2px;
 }
@@ -1028,7 +1044,7 @@ const CLIENT_ID_KEY = "karina-home-app-client-id";
 const DAY_CLONE_KEY = "karina-home-app-day-clone";
 const FIRESTORE_STATE_PATH = "apps/karina/state/main";
 const REMOTE_WRITE_DELAY = 1000;
-const CLEANING_CATALOG_VERSION = 2;
+const CLEANING_CATALOG_VERSION = 3;
 
 const firebaseConfig = {
   apiKey: "AIzaSyDPut_xH290lLMvT8OosokILQPwwzP0DaI",
@@ -1068,6 +1084,13 @@ const defaultTasks = [
   "Wymiana pościeli i ręczników",
   "Kurz: półki, parapety, komody",
   "Mycie okien",
+];
+
+const laundryCleaningTasks = [
+  { group: "Pranie", name: "Wstawienie prania" },
+  { group: "Pranie", name: "Rozwieszenie prania lub przełożenie do suszarki" },
+  { group: "Pranie", name: "Złożenie i odłożenie ubrań" },
+  { group: "Pranie", name: "Przygotowanie pościeli i ręczników do prania" },
 ];
 
 const defaultCleaningTasks = [
@@ -1124,6 +1147,7 @@ const defaultCleaningTasks = [
   { group: "Korytarz i wejście", name: "Przetarcie frontów szafek i listew przypodłogowych" },
   { group: "Korytarz i wejście", name: "Przetarcie drzwi wejściowych od środka i od frontu" },
   { group: "Korytarz i wejście", name: "Zamiecenie lub odkurzenie dywanu przed wejściem do domu" },
+  ...laundryCleaningTasks,
 ];
 
 const legacyCleaningTaskNames = new Set([
@@ -1494,8 +1518,13 @@ function normalizeCleaningCatalog(tasks) {
 function mergeCleaningCatalog(tasks, version = 0) {
   const hasCatalog = Array.isArray(tasks);
   const incoming = normalizeCleaningCatalog(tasks || []);
-  if (Number(version || 0) >= CLEANING_CATALOG_VERSION) {
+  const numericVersion = Number(version || 0);
+  if (!hasCatalog) return normalizeCleaningCatalog(defaultCleaningTasks);
+  if (numericVersion >= CLEANING_CATALOG_VERSION) {
     return hasCatalog ? incoming : normalizeCleaningCatalog(defaultCleaningTasks);
+  }
+  if (numericVersion >= 2) {
+    return normalizeCleaningCatalog([...incoming, ...laundryCleaningTasks]);
   }
   const custom = incoming.filter((task) => !legacyCleaningTaskNames.has(task.name));
   return normalizeCleaningCatalog([...defaultCleaningTasks, ...custom]);
@@ -1819,6 +1848,7 @@ function renderCleaningDayPreview(entry) {
   const dayEntry = getEntry(entry.date || selectedDate);
   const tasks = normalizeCleaningSelection(dayEntry.cleaningTasks || []);
   const done = new Set(normalizeCleaningDone(dayEntry.cleaningDone || [], tasks));
+  const groupsByTask = cleaningGroupLookup();
   const orderedTasks = [...tasks.filter((task) => !done.has(task)), ...tasks.filter((task) => done.has(task))];
   const showEmpty = isCleaningPlanned(entry);
   if (!tasks.length && !showEmpty) return "";
@@ -1833,12 +1863,18 @@ function renderCleaningDayPreview(entry) {
           ? `<div class="cleaning-preview-list" data-cleaning-preview-list role="group" aria-label="Zakres sprzątania na ${escapeAttr(longDate(dayEntry.date))}">
               ${orderedTasks
                 .map(
-                  (task) => `
-                    <div class="cleaning-preview-check ${done.has(task) ? "is-done" : ""}">
-                      <input type="checkbox" data-cleaning-done="${escapeAttr(task)}" aria-label="Oznacz jako wykonane: ${escapeAttr(task)}" ${done.has(task) ? "checked" : ""} />
-                      <span>${escapeHtml(task)}</span>
-                    </div>
-                  `,
+                  (task) => {
+                    const group = groupsByTask.get(task.toLowerCase()) || "Inne";
+                    return `
+                      <div class="cleaning-preview-check ${done.has(task) ? "is-done" : ""}">
+                        <input type="checkbox" data-cleaning-done="${escapeAttr(task)}" aria-label="Oznacz jako wykonane: ${escapeAttr(task)}" ${done.has(task) ? "checked" : ""} />
+                        <span class="cleaning-preview-text">
+                          <strong class="cleaning-preview-group">${escapeHtml(group)}</strong>
+                          <span class="cleaning-preview-task">${escapeHtml(task)}</span>
+                        </span>
+                      </div>
+                    `;
+                  },
                 )
                 .join("")}
             </div>`
@@ -2024,6 +2060,7 @@ function renderRecipeCard(recipe) {
       <div class="card-actions">
         <button class="action-button" type="button" data-use-recipe="${escapeAttr(recipe.name)}">Wybierz do dnia</button>
         <button class="action-button" type="button" data-edit-recipe="${escapeAttr(recipe.name)}">Edytuj</button>
+        <button class="action-button danger" type="button" data-delete-recipe="${escapeAttr(recipe.name)}">Usuń</button>
       </div>
     </article>
   `;
@@ -2322,6 +2359,16 @@ function bindRecipeButtons(root) {
       focusedRecipeName = button.dataset.editRecipe || "";
       fillRecipeForm(button.dataset.editRecipe);
       window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+  root.querySelectorAll("[data-delete-recipe]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const recipeName = button.dataset.deleteRecipe || "";
+      if (!recipeName) return;
+      if (!window.confirm(`Usunąć na stałe przepis: ${recipeName}? Zniknie też z dni, w których był wybrany.`)) return;
+      deleteRecipePermanently(recipeName);
+      saveState();
+      render();
     });
   });
 }
@@ -2692,6 +2739,20 @@ function findRecipe(name) {
   return state.recipes.find((recipe) => recipe.name.toLowerCase() === String(name).toLowerCase()) || null;
 }
 
+function deleteRecipePermanently(name) {
+  const key = String(name || "").trim().toLowerCase();
+  if (!key) return;
+  state.recipes = state.recipes.filter((recipe) => recipe.name.toLowerCase() !== key);
+  state.entries.forEach((entry) => {
+    if (String(entry.recipeName || "").trim().toLowerCase() === key) {
+      entry.recipeName = "";
+    }
+  });
+  if (String(focusedRecipeName || "").trim().toLowerCase() === key) {
+    focusedRecipeName = "";
+  }
+}
+
 function safeRecipeUrl(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -2711,6 +2772,14 @@ function groupCleaningTasks(tasks) {
     groups.get(task.group).push(task);
   }
   return [...groups.entries()];
+}
+
+function cleaningGroupLookup(tasks = state.settings.cleaningTasks) {
+  const groups = new Map();
+  for (const task of normalizeCleaningCatalog(tasks || [])) {
+    groups.set(task.name.toLowerCase(), task.group || "Inne");
+  }
+  return groups;
 }
 
 function isCleaningPlanned(entry) {
