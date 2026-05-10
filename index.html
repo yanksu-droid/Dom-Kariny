@@ -1973,8 +1973,8 @@ function renderRecipePreview(recipe) {
 }
 
 function renderGrafik() {
-  const entries = state.entries;
-  const planned = entries.filter((entry) => entry.status && entry.status !== "Odwołane");
+  const entries = entriesForSelectedMonth();
+  const planned = entries.filter(isWorkDay);
   const hours = planned.reduce((sum, entry) => sum + entryHours(entry), 0);
   return `
     <section class="view-title">
@@ -1996,6 +1996,10 @@ function renderGrafik() {
       ${renderScheduleList(entries)}
     </section>
   `;
+}
+
+function entriesForSelectedMonth() {
+  return state.entries.filter((entry) => entry.date.startsWith(selectedMonth));
 }
 
 function renderMenu() {
@@ -2154,7 +2158,7 @@ function renderSprzatanie() {
 }
 
 function renderFinanse() {
-  const monthEntries = state.entries.filter((entry) => entry.date.startsWith(selectedMonth));
+  const monthEntries = entriesForSelectedMonth();
   const shoppingEntries = monthEntries.filter(
     (entry) => entry.shopping || Number(entry.shoppingCost || 0) > 0 || entry.type.toLowerCase().includes("zakupy"),
   );
@@ -2292,14 +2296,14 @@ function bindView() {
 
   app.querySelector("[data-search]")?.addEventListener("input", (event) => {
     const list = app.querySelector('[data-list="schedule"]');
-    list.innerHTML = renderScheduleList(state.entries, event.target.value);
+    list.innerHTML = renderScheduleList(entriesForSelectedMonth(), event.target.value);
     bindEditButtons(list);
   });
 
   app.querySelector("[data-clear-search]")?.addEventListener("click", () => {
     const search = app.querySelector("[data-search]");
     search.value = "";
-    app.querySelector('[data-list="schedule"]').innerHTML = renderScheduleList(state.entries);
+    app.querySelector('[data-list="schedule"]').innerHTML = renderScheduleList(entriesForSelectedMonth());
     bindEditButtons(app.querySelector('[data-list="schedule"]'));
   });
 
