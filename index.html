@@ -697,6 +697,34 @@ button {
   font-size: 1rem;
 }
 
+.panel-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.payment-detail {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.payment-note {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border: 1px solid #bfe3ca;
+  border-radius: 8px;
+  background: #f0f9f2;
+  color: var(--green);
+  font-size: 0.86rem;
+}
+
+.payment-note span {
+  color: var(--muted);
+}
+
 .cleaning-panel,
 .clone-panel {
   border: 1px solid var(--line);
@@ -1067,6 +1095,7 @@ const typeOptions = [
 ];
 
 const statusOptions = ["Plan", "Potwierdzone", "Zrobione", "Odwołane", "Rozliczone"];
+const paymentMethods = ["BLIK", "Gotówka"];
 
 const defaultTasks = [
   "Kuchnia",
@@ -1481,7 +1510,21 @@ function normalizeState(input) {
     settings,
     entries,
     recipes: normalizeRecipes(input.recipes || seed.recipes),
+    payments: normalizePayments(input.payments || []),
   };
+}
+
+function normalizePayments(payments) {
+  return (payments || [])
+    .map((payment) => ({
+      id: payment.id || createId("pay"),
+      date: isISODate(payment.date) ? payment.date : todayISO(),
+      amount: Math.max(Number(payment.amount || 0), 0),
+      method: paymentMethods.includes(payment.method) ? payment.method : paymentMethods[0],
+      note: String(payment.note || "").trim(),
+    }))
+    .filter((payment) => payment.amount > 0)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }
 
 function normalizeTasks(tasks) {
@@ -1691,7 +1734,7 @@ function createSeedState() {
     });
   }
 
-  return { settings, entries, recipes: defaultRecipes };
+  return { settings, entries, recipes: defaultRecipes, payments: [] };
 }
 
 function patchEntry(entries, date, patch) {
@@ -1817,6 +1860,7 @@ function renderTelefon() {
       ["Zakupy", money(entry.shoppingCost)],
       ["Status", entry.status || "Brak"],
     ])}
+    ${renderEntryPaymentNotice(entry)}
     <section class="day-card">
       <header class="day-heading">
         <strong>${escapeHtml(longDate(entry.date))}</strong>
@@ -2159,6 +2203,8 @@ function renderSprzatanie() {
 
 function renderFinanse() {
   const monthEntries = entriesForSelectedMonth();
+  const settlement = buildPaymentSettlement();
+  const monthAllocations = settlement.allocations.filter((item) => item.entryDate.startsWith(selectedMonth));
   const shoppingEntries = monthEntries.filter(
     (entry) => entry.shopping || Number(entry.shoppingCost || 0) > 0 || entry.type.toLowerCase().includes("zakupy"),
   );
@@ -2169,10 +2215,11 @@ function renderFinanse() {
     (sum, entry) => sum + (entry.status === "Rozliczone" ? entryHours(entry) * hourlyRate : 0),
     0,
   );
+  const paidWorkPay = sumAmounts(monthAllocations.map((item) => item.amount));
   const shopping = monthEntries.reduce((sum, entry) => sum + Number(entry.shoppingCost || 0), 0);
   const advance = Number(state.settings.shoppingAdvance || 0);
   const extraShopping = Math.max(shopping - advance, 0);
-  const transferDue = Math.max(workPay - settledWorkPay, 0) + extraShopping;
+  const transferDue = Math.max(workPay - settledWorkPay - paidWorkPay, 0) + extraShopping;
   return `
     <section class="toolbar" aria-label="Miesiąc">
       <button class="icon-button" type="button" data-step-month="-1" aria-label="Poprzedni miesiąc">${arrowLeft()}</button>
@@ -2192,14 +2239,19 @@ function renderFinanse() {
           <tr><td>Stawka</td><td>${money(state.settings.hourlyRate)} / h</td></tr>
           <tr><td>Koszt pracy</td><td>${money(workPay)}</td></tr>
           <tr><td>Rozliczone dni</td><td>${settledWorkPay ? `-${money(settledWorkPay)}` : money(0)}</td></tr>
+          <tr><td>Wpłaty przypisane do wizyt</td><td>${paidWorkPay ? `-${money(paidWorkPay)}` : money(0)}</td></tr>
           <tr><td>Zaliczka zakupowa</td><td>${money(advance)}</td></tr>
           <tr><td>Wydano z zaliczki</td><td>${money(shopping)}</td></tr>
           <tr><td>Pozostało z zaliczki</td><td>${money(Math.max(advance - shopping, 0))}</td></tr>
           <tr><td>Dopłata za zakupy</td><td>${money(extraShopping)}</td></tr>
+          ${settlement.unallocated ? `<tr><td>Nadpłata bez przypisanej wizyty</td><td>${money(settlement.unallocated)}</td></tr>` : ""}
           <tr><th>Do przekazania</th><th>${money(transferDue)}</th></tr>
         </tbody>
       </table>
     </section>
+    ${renderPaymentForm()}
+    ${renderMonthlyPaymentAllocations(monthEntries, settlement)}
+    ${renderPaymentHistory(settlement)}
     <section class="list-stack">
       <div class="view-title compact">
         <h2>Zakupy w miesiącu</h2>
@@ -2208,6 +2260,114 @@ function renderFinanse() {
         shoppingEntries.length
           ? shoppingEntries.map(renderShoppingCard).join("")
           : '<div class="empty">Brak zakupów w tym miesiącu</div>'
+      }
+    </section>
+  `;
+}
+
+function renderPaymentForm() {
+  return `
+    <section class="settlement-panel">
+      <h3>Jednorazowa wpłata</h3>
+      <p class="panel-note">Wpłata rozlicza pracę od najstarszej nierozliczonej wizyty. Zakupy nadal są liczone według zaliczki zakupowej.</p>
+      <div class="settings-grid">
+        <div class="settings-field">
+          <label for="paymentDate">Data wpłaty</label>
+          <input id="paymentDate" type="date" value="${escapeAttr(todayISO())}" data-payment="date" />
+        </div>
+        <div class="settings-field">
+          <label for="paymentAmount">Kwota</label>
+          <input id="paymentAmount" type="number" min="0" step="0.01" inputmode="decimal" data-payment="amount" />
+        </div>
+        <div class="settings-field">
+          <label for="paymentMethod">Sposób płatności</label>
+          <select id="paymentMethod" data-payment="method">
+            ${paymentMethods.map((method) => `<option value="${escapeAttr(method)}">${escapeHtml(method)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="settings-field">
+          <label for="paymentNote">Notatka</label>
+          <input id="paymentNote" type="text" data-payment="note" placeholder="opcjonalnie" />
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="action-button primary" type="button" data-add-payment>Zapisz wpłatę</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderMonthlyPaymentAllocations(monthEntries, settlement) {
+  const rows = monthEntries
+    .map((entry) => entryPaymentSummary(entry, settlement))
+    .filter((summary) => summary.allocations.length);
+  return `
+    <section class="settlement-panel">
+      <h3>Rozliczenia wizyt w miesiącu</h3>
+      ${
+        rows.length
+          ? `<table class="settlement-table">
+              <tbody>
+                ${rows
+                  .map(
+                    (summary) => `
+                      <tr>
+                        <td>
+                          <strong>${escapeHtml(longDate(summary.date))}</strong>
+                          <div class="payment-detail">${escapeHtml(paymentSummaryText(summary))}</div>
+                        </td>
+                        <td>${money(summary.paid)}</td>
+                      </tr>
+                    `,
+                  )
+                  .join("")}
+              </tbody>
+            </table>`
+          : '<p class="panel-note">Brak wpłat przypisanych do wizyt w tym miesiącu.</p>'
+      }
+    </section>
+  `;
+}
+
+function renderPaymentHistory(settlement) {
+  const payments = normalizePayments(state.payments || []);
+  return `
+    <section class="list-stack">
+      <div class="view-title compact">
+        <h2>Historia wpłat</h2>
+      </div>
+      ${
+        payments.length
+          ? payments
+              .map((payment) => {
+                const allocations = settlement.allocations.filter((item) => item.paymentId === payment.id);
+                const applied = sumAmounts(allocations.map((item) => item.amount));
+                const leftover = Math.max(payment.amount - applied, 0);
+                return `
+                  <article class="list-card">
+                    <header>
+                      <div>
+                        <h3>${escapeHtml(longDate(payment.date))}</h3>
+                        <p>${escapeHtml(payment.method)}${payment.note ? ` · ${escapeHtml(payment.note)}` : ""}</p>
+                      </div>
+                      <span class="chip good">${money(payment.amount)}</span>
+                    </header>
+                    <p>${applied ? `Przypisano do wizyt: ${escapeHtml(money(applied))}` : "Nie przypisano jeszcze do żadnej wizyty."}${leftover ? ` Nadpłata: ${escapeHtml(money(leftover))}.` : ""}</p>
+                    ${
+                      allocations.length
+                        ? `<p><strong>Daty:</strong> ${escapeHtml(
+                            allocations.map((item) => `${longDate(item.entryDate)} ${money(item.amount)}`).join(", "),
+                          )}</p>`
+                        : ""
+                    }
+                    <div class="card-actions">
+                      <button class="action-button danger" type="button" data-delete-payment="${escapeAttr(payment.id)}">Usuń wpłatę</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")
+          : '<div class="empty">Brak zapisanych wpłat</div>'
       }
     </section>
   `;
@@ -2293,6 +2453,7 @@ function bindView() {
   bindRecipeButtons(app);
   bindCleaningControls(app);
   bindCloneControls(app);
+  bindPaymentControls(app);
 
   app.querySelector("[data-search]")?.addEventListener("input", (event) => {
     const list = app.querySelector('[data-list="schedule"]');
@@ -2493,6 +2654,21 @@ function bindCloneControls(root) {
   });
 }
 
+function bindPaymentControls(root) {
+  root.querySelector("[data-add-payment]")?.addEventListener("click", addPaymentFromForm);
+  root.querySelectorAll("[data-delete-payment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.deletePayment || "";
+      const payment = (state.payments || []).find((item) => item.id === id);
+      if (!payment) return;
+      if (!window.confirm(`Usunąć wpłatę z ${longDate(payment.date)} na ${money(payment.amount)}?`)) return;
+      state.payments = normalizePayments(state.payments || []).filter((item) => item.id !== id);
+      saveState();
+      render();
+    });
+  });
+}
+
 function updateEntryFromField(event) {
   const entry = getEntry(selectedDate);
   const field = event.target.dataset.field;
@@ -2526,6 +2702,28 @@ function updateSettingFromField(event) {
     state.settings[setting] = Number(event.target.value || 0);
   }
   saveState();
+}
+
+function addPaymentFromForm() {
+  const get = (name) => app.querySelector(`[data-payment="${name}"]`)?.value.trim() || "";
+  const amount = Number(get("amount").replace(",", "."));
+  if (!amount || amount <= 0) {
+    setSaveState("Brak kwoty wpłaty");
+    return;
+  }
+  const method = paymentMethods.includes(get("method")) ? get("method") : paymentMethods[0];
+  state.payments = normalizePayments([
+    ...(state.payments || []),
+    {
+      id: createId("pay"),
+      date: isISODate(get("date")) ? get("date") : todayISO(),
+      amount,
+      method,
+      note: get("note"),
+    },
+  ]);
+  saveState();
+  render();
 }
 
 function saveRecipeFromForm() {
@@ -2612,6 +2810,7 @@ function renderScheduleCard(entry) {
   const tasks = entry.tasks.filter(Boolean);
   const cleaning = normalizeCleaningSelection(entry.cleaningTasks || []);
   const cleaningDone = normalizeCleaningDone(entry.cleaningDone || [], cleaning);
+  const settlement = buildPaymentSettlement();
   return `
     <article class="list-card">
       <header>
@@ -2628,6 +2827,7 @@ function renderScheduleCard(entry) {
         ${entry.recipeName ? `<span class="chip">${escapeHtml(entry.recipeName)}</span>` : ""}
         ${cleaning.length ? `<span class="chip">${cleaningDone.length}/${cleaning.length} sprząt.</span>` : ""}
       </div>
+      ${renderEntryPaymentNotice(entry, settlement)}
       ${tasks.length ? `<p>${escapeHtml(tasks.join(", "))}</p>` : ""}
       ${cleaning.length ? `<p><strong>Sprzątanie:</strong> ${escapeHtml(cleaning.slice(0, 8).join(", "))}${cleaning.length > 8 ? "..." : ""}</p>` : ""}
       ${entry.meal ? `<p>${escapeHtml(entry.meal)}</p>` : ""}
@@ -2654,6 +2854,86 @@ function renderShoppingCard(entry) {
         <button class="action-button" type="button" data-edit-date="${escapeAttr(entry.date)}">Edytuj</button>
       </div>
     </article>
+  `;
+}
+
+function buildPaymentSettlement() {
+  const payments = normalizePayments(state.payments || []);
+  const charges = state.entries
+    .filter((entry) => entryHours(entry) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((entry) => {
+      const amount = roundMoneyAmount(entryTotals(entry).workPay);
+      return {
+        entry,
+        date: entry.date,
+        amount,
+        remaining: entry.status === "Rozliczone" ? 0 : amount,
+      };
+    });
+  const allocations = [];
+  let unallocated = 0;
+
+  payments.forEach((payment) => {
+    let left = roundMoneyAmount(payment.amount);
+    charges.forEach((charge) => {
+      if (left <= 0 || charge.remaining <= 0) return;
+      const amount = Math.min(charge.remaining, left);
+      const rounded = roundMoneyAmount(amount);
+      charge.remaining = roundMoneyAmount(charge.remaining - rounded);
+      left = roundMoneyAmount(left - rounded);
+      allocations.push({
+        paymentId: payment.id,
+        paymentDate: payment.date,
+        method: payment.method,
+        note: payment.note,
+        entryDate: charge.date,
+        amount: rounded,
+      });
+    });
+    unallocated = roundMoneyAmount(unallocated + left);
+  });
+
+  const allocationsByDate = new Map();
+  allocations.forEach((allocation) => {
+    if (!allocationsByDate.has(allocation.entryDate)) allocationsByDate.set(allocation.entryDate, []);
+    allocationsByDate.get(allocation.entryDate).push(allocation);
+  });
+
+  return { payments, allocations, allocationsByDate, unallocated };
+}
+
+function entryPaymentSummary(entry, settlement = buildPaymentSettlement()) {
+  const allocations = settlement.allocationsByDate.get(entry.date) || [];
+  const paid = sumAmounts(allocations.map((item) => item.amount));
+  const due = roundMoneyAmount(entryTotals(entry).workPay);
+  const manuallySettled = entry.status === "Rozliczone" ? due : 0;
+  const remaining = Math.max(roundMoneyAmount(due - manuallySettled - paid), 0);
+  return { date: entry.date, due, paid, remaining, manuallySettled, allocations };
+}
+
+function paymentSummaryText(summary) {
+  if (!summary.allocations.length) return "";
+  const prefix =
+    summary.remaining > 0
+      ? `Rozliczono część kwoty: ${money(summary.paid)} z ${money(summary.due)}`
+      : `Rozliczono kwotę: ${money(summary.paid)}`;
+  const details = summary.allocations
+    .map((item) => `${longDate(item.paymentDate)} · ${item.method} · ${money(item.amount)}`)
+    .join("; ");
+  return details ? `${prefix}. ${details}` : prefix;
+}
+
+function renderEntryPaymentNotice(entry, settlement = buildPaymentSettlement()) {
+  const summary = entryPaymentSummary(entry, settlement);
+  if (!summary.allocations.length) return "";
+  return `
+    <div class="payment-note">
+      <strong>${escapeHtml(summary.remaining > 0 ? "Rozliczono część kwoty" : "Rozliczono wpłatą")}: ${escapeHtml(money(summary.paid))}${summary.remaining > 0 ? ` z ${escapeHtml(money(summary.due))}` : ""}</strong>
+      <span>${escapeHtml(
+        summary.allocations.map((item) => `${longDate(item.paymentDate)} · ${item.method} · ${money(item.amount)}`).join("; "),
+      )}</span>
+    </div>
   `;
 }
 
@@ -2934,6 +3214,10 @@ function todayISO() {
   return toISO(new Date());
 }
 
+function isISODate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
 function toISO(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -2962,11 +3246,24 @@ function money(value) {
   return new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(Number(value || 0));
 }
 
+function roundMoneyAmount(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function sumAmounts(values) {
+  return roundMoneyAmount((values || []).reduce((sum, value) => sum + Number(value || 0), 0));
+}
+
+function createId(prefix = "id") {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function exportJson() {
   download(`karina-dom-${todayISO()}.json`, JSON.stringify(state, null, 2), "application/json");
 }
 
 function exportCsv() {
+  const settlement = buildPaymentSettlement();
   const header = [
     "Data",
     "Od",
@@ -2981,6 +3278,7 @@ function exportCsv() {
     "Obiad",
     "Zakupy",
     "Koszt zakupów",
+    "Rozliczenia wpłat",
     "Notatki",
   ];
   const rows = state.entries.map((entry) => [
@@ -2997,6 +3295,7 @@ function exportCsv() {
     entry.meal,
     entry.shopping,
     Number(entry.shoppingCost || 0).toFixed(2),
+    paymentSummaryText(entryPaymentSummary(entry, settlement)),
     entry.notes,
   ]);
   const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
