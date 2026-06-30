@@ -1393,7 +1393,8 @@ function subscribeRemoteState() {
         return;
       }
 
-      const shouldSaveShoppingAdvanceMigration = !Array.isArray(remoteState.shoppingAdvances);
+      const shouldSaveShoppingAdvanceMigration =
+        !Array.isArray(remoteState.shoppingAdvances) || hasCollapsibleLegacyShoppingAdvances(remoteState.shoppingAdvances);
       sync.applyingRemote = true;
       state = normalizeState(remoteState);
       storageSet(STORAGE_KEY, JSON.stringify(state));
@@ -1533,7 +1534,7 @@ function normalizePayments(payments) {
 }
 
 function normalizeShoppingAdvances(advances) {
-  return (advances || [])
+  const normalized = (advances || [])
     .map((advance) => ({
       id: advance.id || createId("shop"),
       date: isISODate(advance.date) ? advance.date : todayISO(),
@@ -1543,19 +1544,51 @@ function normalizeShoppingAdvances(advances) {
     }))
     .filter((advance) => advance.amount > 0)
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+  return collapseLegacyShoppingAdvances(normalized);
 }
 
 function buildLegacyShoppingAdvances(amount, entries) {
   const value = Math.max(Number(amount || 0), 0);
   if (!value) return [];
   const months = [...new Set((entries || []).map((entry) => String(entry.date || "").slice(0, 7)).filter(Boolean))].sort();
-  return months.map((month) => ({
-    id: `shop-legacy-${month}`,
-    date: `${month}-01`,
-    amount: value,
-    method: paymentMethods[0],
-    note: "Przeniesione z dawnej zaliczki miesięcznej",
-  }));
+  const month = months[0] || todayISO().slice(0, 7);
+  return [
+    {
+      id: "shop-legacy-start",
+      date: `${month}-01`,
+      amount: value,
+      method: paymentMethods[0],
+      note: "Przeniesione z dawnej zaliczki miesięcznej",
+    },
+  ];
+}
+
+function collapseLegacyShoppingAdvances(advances) {
+  const legacy = advances.filter(isLegacyShoppingAdvance);
+  const regular = advances.filter((advance) => !isLegacyShoppingAdvance(advance));
+  if (!legacy.length) return advances;
+  const first = legacy[0];
+  const amount = legacy.find((advance) => advance.amount > 0)?.amount || first.amount;
+  return [
+    {
+      id: "shop-legacy-start",
+      date: first.date,
+      amount,
+      method: first.method,
+      note: "Przeniesione z dawnej zaliczki miesięcznej",
+    },
+    ...regular,
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+}
+
+function isLegacyShoppingAdvance(advance) {
+  return String(advance.id || "").startsWith("shop-legacy-") || advance.note === "Przeniesione z dawnej zaliczki miesięcznej";
+}
+
+function hasCollapsibleLegacyShoppingAdvances(advances) {
+  if (!Array.isArray(advances)) return true;
+  const legacy = advances.filter(isLegacyShoppingAdvance);
+  return legacy.length > 1 || legacy.some((advance) => advance.id !== "shop-legacy-start");
 }
 
 function normalizeTasks(tasks) {
