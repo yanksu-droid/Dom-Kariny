@@ -1393,6 +1393,7 @@ function subscribeRemoteState() {
         return;
       }
 
+      const shouldSaveShoppingAdvanceMigration = !Array.isArray(remoteState.shoppingAdvances);
       sync.applyingRemote = true;
       state = normalizeState(remoteState);
       storageSet(STORAGE_KEY, JSON.stringify(state));
@@ -1400,6 +1401,7 @@ function subscribeRemoteState() {
       sync.remoteReady = true;
       sync.status = "online";
       setSaveState(currentSyncLabel(), true);
+      if (shouldSaveShoppingAdvanceMigration) saveState({ immediate: true });
       render();
     },
     (error) => {
@@ -1511,6 +1513,9 @@ function normalizeState(input) {
     entries,
     recipes: normalizeRecipes(input.recipes || seed.recipes),
     payments: normalizePayments(input.payments || []),
+    shoppingAdvances: Array.isArray(input.shoppingAdvances)
+      ? normalizeShoppingAdvances(input.shoppingAdvances)
+      : buildLegacyShoppingAdvances(settings.shoppingAdvance, entries),
   };
 }
 
@@ -1525,6 +1530,32 @@ function normalizePayments(payments) {
     }))
     .filter((payment) => payment.amount > 0)
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+}
+
+function normalizeShoppingAdvances(advances) {
+  return (advances || [])
+    .map((advance) => ({
+      id: advance.id || createId("shop"),
+      date: isISODate(advance.date) ? advance.date : todayISO(),
+      amount: Math.max(Number(advance.amount || 0), 0),
+      method: paymentMethods.includes(advance.method) ? advance.method : paymentMethods[0],
+      note: String(advance.note || "").trim(),
+    }))
+    .filter((advance) => advance.amount > 0)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+}
+
+function buildLegacyShoppingAdvances(amount, entries) {
+  const value = Math.max(Number(amount || 0), 0);
+  if (!value) return [];
+  const months = [...new Set((entries || []).map((entry) => String(entry.date || "").slice(0, 7)).filter(Boolean))].sort();
+  return months.map((month) => ({
+    id: `shop-legacy-${month}`,
+    date: `${month}-01`,
+    amount: value,
+    method: paymentMethods[0],
+    note: "Przeniesione z dawnej zaliczki miesięcznej",
+  }));
 }
 
 function normalizeTasks(tasks) {
@@ -1734,7 +1765,13 @@ function createSeedState() {
     });
   }
 
-  return { settings, entries, recipes: defaultRecipes, payments: [] };
+  return {
+    settings,
+    entries,
+    recipes: defaultRecipes,
+    payments: [],
+    shoppingAdvances: buildLegacyShoppingAdvances(settings.shoppingAdvance, entries),
+  };
 }
 
 function patchEntry(entries, date, patch) {
@@ -2204,6 +2241,7 @@ function renderSprzatanie() {
 function renderFinanse() {
   const monthEntries = entriesForSelectedMonth();
   const settlement = buildPaymentSettlement();
+  const shoppingSettlement = buildShoppingAdvanceSettlement(selectedMonth);
   const monthAllocations = settlement.allocations.filter((item) => item.entryDate.startsWith(selectedMonth));
   const shoppingEntries = monthEntries.filter(
     (entry) => entry.shopping || Number(entry.shoppingCost || 0) > 0 || entry.type.toLowerCase().includes("zakupy"),
@@ -2217,8 +2255,7 @@ function renderFinanse() {
   );
   const paidWorkPay = sumAmounts(monthAllocations.map((item) => item.amount));
   const shopping = monthEntries.reduce((sum, entry) => sum + Number(entry.shoppingCost || 0), 0);
-  const advance = Number(state.settings.shoppingAdvance || 0);
-  const extraShopping = Math.max(shopping - advance, 0);
+  const extraShopping = shoppingSettlement.extraShopping;
   const transferDue = Math.max(workPay - settledWorkPay - paidWorkPay, 0) + extraShopping;
   return `
     <section class="toolbar" aria-label="Miesiąc">
@@ -2240,15 +2277,18 @@ function renderFinanse() {
           <tr><td>Koszt pracy</td><td>${money(workPay)}</td></tr>
           <tr><td>Rozliczone dni</td><td>${settledWorkPay ? `-${money(settledWorkPay)}` : money(0)}</td></tr>
           <tr><td>Wpłaty przypisane do wizyt</td><td>${paidWorkPay ? `-${money(paidWorkPay)}` : money(0)}</td></tr>
-          <tr><td>Zaliczka zakupowa</td><td>${money(advance)}</td></tr>
-          <tr><td>Wydano z zaliczki</td><td>${money(shopping)}</td></tr>
-          <tr><td>Pozostało z zaliczki</td><td>${money(Math.max(advance - shopping, 0))}</td></tr>
+          <tr><td>Saldo zakupowe z poprzednich miesięcy</td><td>${money(shoppingSettlement.openingBalance)}</td></tr>
+          <tr><td>Zaliczki zakupowe w miesiącu</td><td>${money(shoppingSettlement.monthAdvance)}</td></tr>
+          <tr><td>Wydano na zakupy w miesiącu</td><td>${money(shopping)}</td></tr>
+          <tr><td>Pozostało w kasie zakupowej</td><td>${money(shoppingSettlement.remainingShoppingBalance)}</td></tr>
           <tr><td>Dopłata za zakupy</td><td>${money(extraShopping)}</td></tr>
           ${settlement.unallocated ? `<tr><td>Nadpłata bez przypisanej wizyty</td><td>${money(settlement.unallocated)}</td></tr>` : ""}
           <tr><th>Do przekazania</th><th>${money(transferDue)}</th></tr>
         </tbody>
       </table>
     </section>
+    ${renderShoppingAdvanceForm()}
+    ${renderShoppingAdvanceHistory(shoppingSettlement)}
     ${renderPaymentForm()}
     ${renderMonthlyPaymentAllocations(monthEntries, settlement)}
     ${renderPaymentHistory(settlement)}
@@ -2265,11 +2305,77 @@ function renderFinanse() {
   `;
 }
 
+function renderShoppingAdvanceForm() {
+  return `
+    <section class="settlement-panel">
+      <h3>Zaliczka na zakupy</h3>
+      <p class="panel-note">Zaliczki tworzą saldo zakupowe. Niewykorzystana kwota przechodzi na kolejne miesiące.</p>
+      <div class="settings-grid">
+        <div class="settings-field">
+          <label for="shoppingAdvanceDate">Data zaliczki</label>
+          <input id="shoppingAdvanceDate" type="date" value="${escapeAttr(todayISO())}" data-shopping-advance="date" />
+        </div>
+        <div class="settings-field">
+          <label for="shoppingAdvanceAmount">Kwota</label>
+          <input id="shoppingAdvanceAmount" type="number" min="0" step="0.01" inputmode="decimal" data-shopping-advance="amount" />
+        </div>
+        <div class="settings-field">
+          <label for="shoppingAdvanceMethod">Sposób płatności</label>
+          <select id="shoppingAdvanceMethod" data-shopping-advance="method">
+            ${paymentMethods.map((method) => `<option value="${escapeAttr(method)}">${escapeHtml(method)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="settings-field">
+          <label for="shoppingAdvanceNote">Notatka</label>
+          <input id="shoppingAdvanceNote" type="text" data-shopping-advance="note" placeholder="opcjonalnie" />
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="action-button primary" type="button" data-add-shopping-advance>Dodaj zaliczkę</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderShoppingAdvanceHistory(shoppingSettlement) {
+  const advances = normalizeShoppingAdvances(state.shoppingAdvances || []);
+  return `
+    <section class="list-stack">
+      <div class="view-title compact">
+        <h2>Historia zaliczek zakupowych</h2>
+        <p>Saldo po ${escapeHtml(monthLabel(selectedMonth))}: ${escapeHtml(money(shoppingSettlement.closingBalance))}</p>
+      </div>
+      ${
+        advances.length
+          ? advances
+              .map(
+                (advance) => `
+                  <article class="list-card">
+                    <header>
+                      <div>
+                        <h3>${escapeHtml(longDate(advance.date))}</h3>
+                        <p>${escapeHtml(advance.method)}${advance.note ? ` · ${escapeHtml(advance.note)}` : ""}</p>
+                      </div>
+                      <span class="chip good">${money(advance.amount)}</span>
+                    </header>
+                    <div class="card-actions">
+                      <button class="action-button danger" type="button" data-delete-shopping-advance="${escapeAttr(advance.id)}">Usuń zaliczkę</button>
+                    </div>
+                  </article>
+                `,
+              )
+              .join("")
+          : '<div class="empty">Brak zapisanych zaliczek zakupowych</div>'
+      }
+    </section>
+  `;
+}
+
 function renderPaymentForm() {
   return `
     <section class="settlement-panel">
-      <h3>Jednorazowa wpłata</h3>
-      <p class="panel-note">Wpłata rozlicza pracę od najstarszej nierozliczonej wizyty. Zakupy nadal są liczone według zaliczki zakupowej.</p>
+      <h3>Jednorazowa wpłata za pracę</h3>
+      <p class="panel-note">Wpłata rozlicza pracę od najstarszej nierozliczonej wizyty. Zakupy są liczone osobno przez zaliczki zakupowe.</p>
       <div class="settings-grid">
         <div class="settings-field">
           <label for="paymentDate">Data wpłaty</label>
@@ -2384,10 +2490,6 @@ function renderUstawienia() {
         <div class="settings-field">
           <label for="hourlyRate">Stawka PLN/h</label>
           <input id="hourlyRate" type="number" min="0" step="1" value="${escapeAttr(state.settings.hourlyRate)}" data-setting="hourlyRate" />
-        </div>
-        <div class="settings-field">
-          <label for="shoppingAdvance">Zaliczka</label>
-          <input id="shoppingAdvance" type="number" min="0" step="1" value="${escapeAttr(state.settings.shoppingAdvance)}" data-setting="shoppingAdvance" />
         </div>
         <div class="settings-field full">
           <label for="taskList">Lista zadań</label>
@@ -2656,6 +2758,7 @@ function bindCloneControls(root) {
 
 function bindPaymentControls(root) {
   root.querySelector("[data-add-payment]")?.addEventListener("click", addPaymentFromForm);
+  root.querySelector("[data-add-shopping-advance]")?.addEventListener("click", addShoppingAdvanceFromForm);
   root.querySelectorAll("[data-delete-payment]").forEach((button) => {
     button.addEventListener("click", () => {
       const id = button.dataset.deletePayment || "";
@@ -2663,6 +2766,17 @@ function bindPaymentControls(root) {
       if (!payment) return;
       if (!window.confirm(`Usunąć wpłatę z ${longDate(payment.date)} na ${money(payment.amount)}?`)) return;
       state.payments = normalizePayments(state.payments || []).filter((item) => item.id !== id);
+      saveState();
+      render();
+    });
+  });
+  root.querySelectorAll("[data-delete-shopping-advance]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.deleteShoppingAdvance || "";
+      const advance = (state.shoppingAdvances || []).find((item) => item.id === id);
+      if (!advance) return;
+      if (!window.confirm(`Usunąć zaliczkę zakupową z ${longDate(advance.date)} na ${money(advance.amount)}?`)) return;
+      state.shoppingAdvances = normalizeShoppingAdvances(state.shoppingAdvances || []).filter((item) => item.id !== id);
       saveState();
       render();
     });
@@ -2716,6 +2830,28 @@ function addPaymentFromForm() {
     ...(state.payments || []),
     {
       id: createId("pay"),
+      date: isISODate(get("date")) ? get("date") : todayISO(),
+      amount,
+      method,
+      note: get("note"),
+    },
+  ]);
+  saveState();
+  render();
+}
+
+function addShoppingAdvanceFromForm() {
+  const get = (name) => app.querySelector(`[data-shopping-advance="${name}"]`)?.value.trim() || "";
+  const amount = Number(get("amount").replace(",", "."));
+  if (!amount || amount <= 0) {
+    setSaveState("Brak kwoty zaliczki");
+    return;
+  }
+  const method = paymentMethods.includes(get("method")) ? get("method") : paymentMethods[0];
+  state.shoppingAdvances = normalizeShoppingAdvances([
+    ...(state.shoppingAdvances || []),
+    {
+      id: createId("shop"),
       date: isISODate(get("date")) ? get("date") : todayISO(),
       amount,
       method,
@@ -2855,6 +2991,35 @@ function renderShoppingCard(entry) {
       </div>
     </article>
   `;
+}
+
+function buildShoppingAdvanceSettlement(month = selectedMonth) {
+  const advances = normalizeShoppingAdvances(state.shoppingAdvances || []);
+  const monthStart = `${month}-01`;
+  const nextMonthStart = `${shiftMonth(month, 1)}-01`;
+  const advanceBefore = sumAmounts(advances.filter((advance) => advance.date < monthStart).map((advance) => advance.amount));
+  const shoppingBefore = sumAmounts(
+    state.entries.filter((entry) => entry.date < monthStart).map((entry) => Number(entry.shoppingCost || 0)),
+  );
+  const openingBalance = roundMoneyAmount(advanceBefore - shoppingBefore);
+  const monthAdvances = advances.filter((advance) => advance.date >= monthStart && advance.date < nextMonthStart);
+  const monthAdvance = sumAmounts(monthAdvances.map((advance) => advance.amount));
+  const monthShopping = sumAmounts(
+    state.entries
+      .filter((entry) => entry.date >= monthStart && entry.date < nextMonthStart)
+      .map((entry) => Number(entry.shoppingCost || 0)),
+  );
+  const closingBalance = roundMoneyAmount(openingBalance + monthAdvance - monthShopping);
+  return {
+    advances,
+    monthAdvances,
+    openingBalance,
+    monthAdvance,
+    monthShopping,
+    closingBalance,
+    remainingShoppingBalance: Math.max(closingBalance, 0),
+    extraShopping: Math.max(-closingBalance, 0),
+  };
 }
 
 function buildPaymentSettlement() {
