@@ -874,6 +874,18 @@ button {
   text-align: right;
 }
 
+.settlement-table .settlement-group-row th {
+  padding-top: 16px;
+  background: #f6faf9;
+  color: var(--primary-strong);
+  text-align: left;
+}
+
+.settlement-table .muted-cell {
+  color: var(--muted);
+  text-align: left;
+}
+
 .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2347,6 +2359,7 @@ function renderFinanse() {
         </tbody>
       </table>
     </section>
+    ${renderShoppingSettlementDetails(shoppingSettlement)}
     ${renderShoppingAdvanceForm()}
     ${renderShoppingAdvanceHistory(shoppingSettlement)}
     ${renderPaymentForm()}
@@ -2362,6 +2375,59 @@ function renderFinanse() {
           : '<div class="empty">Brak zakupów w tym miesiącu</div>'
       }
     </section>
+  `;
+}
+
+function renderShoppingSettlementDetails(shoppingSettlement) {
+  return `
+    <section class="settlement-panel">
+      <h3>Rozbicie zakupów i zaliczek</h3>
+      <table class="settlement-table">
+        <tbody>
+          ${renderSettlementRows("Zaliczki przed miesiącem", shoppingSettlement.priorAdvances, "amount", renderAdvanceSettlementSource)}
+          ${renderSettlementRows("Koszty zakupów przed miesiącem", shoppingSettlement.priorShoppingEntries, "shoppingCost", renderShoppingSettlementSource)}
+          ${renderSettlementRows("Zaliczki w miesiącu", shoppingSettlement.monthAdvances, "amount", renderAdvanceSettlementSource)}
+          ${renderSettlementRows("Koszty zakupów w miesiącu", shoppingSettlement.monthShoppingEntries, "shoppingCost", renderShoppingSettlementSource)}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function renderSettlementRows(title, items, amountKey, renderSource) {
+  const total = sumAmounts(items.map((item) => Number(item[amountKey] || 0)));
+  return `
+    <tr class="settlement-group-row"><th colspan="2">${escapeHtml(title)}: ${money(total)}</th></tr>
+    ${
+      items.length
+        ? items
+            .map(
+              (item) => `
+                <tr>
+                  <td>${renderSource(item)}</td>
+                  <td>${money(item[amountKey] || 0)}</td>
+                </tr>
+              `,
+            )
+            .join("")
+        : '<tr><td colspan="2" class="muted-cell">Brak pozycji</td></tr>'
+    }
+  `;
+}
+
+function renderShoppingSettlementSource(entry) {
+  const details = [entry.type, entry.shopping, entry.meal].filter(Boolean).join(" · ");
+  return `
+    <strong>${escapeHtml(longDate(entry.date))}</strong>
+    ${details ? `<div class="payment-detail">${escapeHtml(details)}</div>` : ""}
+  `;
+}
+
+function renderAdvanceSettlementSource(advance) {
+  const details = [advance.method, advance.note].filter(Boolean).join(" · ");
+  return `
+    <strong>${escapeHtml(longDate(advance.date))}</strong>
+    ${details ? `<div class="payment-detail">${escapeHtml(details)}</div>` : ""}
   `;
 }
 
@@ -3059,23 +3125,27 @@ function buildShoppingAdvanceSettlement(month = selectedMonth) {
   const advances = normalizeShoppingAdvances(state.shoppingAdvances || []);
   const monthStart = `${month}-01`;
   const nextMonthStart = `${shiftMonth(month, 1)}-01`;
-  const advanceBefore = sumAmounts(advances.filter((advance) => advance.date < monthStart).map((advance) => advance.amount));
-  const shoppingBefore = sumAmounts(
-    state.entries.filter((entry) => entry.date < monthStart).map((entry) => Number(entry.shoppingCost || 0)),
-  );
+  const priorAdvances = advances.filter((advance) => advance.date < monthStart);
+  const priorShoppingEntries = state.entries
+    .filter((entry) => entry.date < monthStart && Number(entry.shoppingCost || 0) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const advanceBefore = sumAmounts(priorAdvances.map((advance) => advance.amount));
+  const shoppingBefore = sumAmounts(priorShoppingEntries.map((entry) => Number(entry.shoppingCost || 0)));
   const openingBalance = roundMoneyAmount(advanceBefore - shoppingBefore);
   const monthAdvances = advances.filter((advance) => advance.date >= monthStart && advance.date < nextMonthStart);
   const monthAdvance = sumAmounts(monthAdvances.map((advance) => advance.amount));
   const availableThisMonth = roundMoneyAmount(openingBalance + monthAdvance);
-  const monthShopping = sumAmounts(
-    state.entries
-      .filter((entry) => entry.date >= monthStart && entry.date < nextMonthStart)
-      .map((entry) => Number(entry.shoppingCost || 0)),
-  );
+  const monthShoppingEntries = state.entries
+    .filter((entry) => entry.date >= monthStart && entry.date < nextMonthStart && Number(entry.shoppingCost || 0) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const monthShopping = sumAmounts(monthShoppingEntries.map((entry) => Number(entry.shoppingCost || 0)));
   const closingBalance = roundMoneyAmount(openingBalance + monthAdvance - monthShopping);
   return {
     advances,
+    priorAdvances,
     monthAdvances,
+    priorShoppingEntries,
+    monthShoppingEntries,
     openingBalance,
     monthAdvance,
     availableThisMonth,
