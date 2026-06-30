@@ -684,15 +684,13 @@ button {
 
 .settlement-panel,
 .settings-panel,
-.cleaning-panel,
-.clone-panel {
+.cleaning-panel {
   padding: 14px;
 }
 
 .settlement-panel h3,
 .settings-panel h3,
-.cleaning-panel h3,
-.clone-panel h3 {
+.cleaning-panel h3 {
   margin: 0 0 12px;
   font-size: 1rem;
 }
@@ -725,25 +723,11 @@ button {
   color: var(--muted);
 }
 
-.cleaning-panel,
-.clone-panel {
+.cleaning-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
-}
-
-.clone-panel {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.clone-panel p {
-  margin: 0;
-  color: var(--muted);
 }
 
 .cleaning-panel {
@@ -831,17 +815,14 @@ button {
 }
 
 @media (max-width: 520px) {
-  .clone-panel,
   .cleaning-panel > header {
     display: grid;
   }
 
-  .clone-panel .card-actions,
   .cleaning-panel > header .action-button {
     width: 100%;
   }
 
-  .clone-panel .action-button,
   .cleaning-panel > header .action-button {
     width: 100%;
   }
@@ -1081,7 +1062,6 @@ button {
     <script>
 const STORAGE_KEY = "karina-home-app-v1";
 const CLIENT_ID_KEY = "karina-home-app-client-id";
-const DAY_CLONE_KEY = "karina-home-app-day-clone";
 const FIRESTORE_STATE_PATH = "apps/karina/state/main";
 const REMOTE_WRITE_DELAY = 1000;
 const CLEANING_CATALOG_VERSION = 3;
@@ -1259,7 +1239,6 @@ let activeView = "telefon";
 let selectedDate = pickInitialDate();
 let selectedMonth = selectedDate.slice(0, 7);
 let focusedRecipeName = "";
-let dayClone = loadDayClone();
 let sync = {
   status: "starting",
   user: null,
@@ -1991,7 +1970,6 @@ function renderTelefon() {
         ${textareaField("Notatki", "notes", entry.notes)}
       </div>
     </section>
-    ${renderClonePanel()}
   `;
 }
 
@@ -2052,21 +2030,6 @@ function restoreCleaningPreviewScrollSnapshot(snapshot) {
     }
     window.scrollTo(snapshot.windowX, snapshot.windowY);
   });
-}
-
-function renderClonePanel() {
-  return `
-    <section class="clone-panel">
-      <div>
-        <h3>Klonowanie dnia</h3>
-        <p>${dayClone ? `Skopiowano: ${escapeHtml(dayClone.sourceDate ? longDate(dayClone.sourceDate) : "dzień")}` : "Skopiuj cały dzień i wklej go na innej dacie."}</p>
-      </div>
-      <div class="card-actions">
-        <button class="action-button" type="button" data-copy-day>Kopiuj ten dzień</button>
-        <button class="action-button primary" type="button" data-paste-day ${dayClone ? "" : "disabled"}>Wklej tutaj</button>
-      </div>
-    </section>
-  `;
 }
 
 function renderCalendar(month) {
@@ -2680,7 +2643,6 @@ function bindView() {
   bindEditButtons(app);
   bindRecipeButtons(app);
   bindCleaningControls(app);
-  bindCloneControls(app);
   bindPaymentControls(app);
 
   app.querySelector("[data-search]")?.addEventListener("input", (event) => {
@@ -2854,32 +2816,6 @@ function bindCleaningControls(root) {
   });
 
   root.querySelector("[data-add-cleaning-task]")?.addEventListener("click", addCleaningTaskFromForm);
-}
-
-function bindCloneControls(root) {
-  root.querySelector("[data-copy-day]")?.addEventListener("click", () => {
-    dayClone = {
-      sourceDate: selectedDate,
-      data: copyEntryData(getEntry(selectedDate)),
-    };
-    storageSet(DAY_CLONE_KEY, JSON.stringify(dayClone));
-    setSaveState("Skopiowano dzień");
-    render();
-  });
-
-  root.querySelector("[data-paste-day]")?.addEventListener("click", () => {
-    if (!dayClone?.data) return;
-    const sourceLabel = dayClone.sourceDate ? longDate(dayClone.sourceDate) : "skopiowany";
-    if (!window.confirm(`Wkleić dzień ${sourceLabel} do ${longDate(selectedDate)}?`)) return;
-    const entry = getEntry(selectedDate);
-    Object.assign(entry, copyEntryData(dayClone.data));
-    entry.date = selectedDate;
-    entry.tasks = normalizeTasks(entry.tasks);
-    entry.cleaningTasks = normalizeCleaningSelection(entry.cleaningTasks);
-    entry.cleaningDone = normalizeCleaningDone(entry.cleaningDone, entry.cleaningTasks);
-    saveState({ immediate: true });
-    render();
-  });
 }
 
 function bindPaymentControls(root) {
@@ -3435,38 +3371,6 @@ function removeCleaningTaskPermanently(taskName) {
       entry.cleaningTasks,
     );
   });
-}
-
-function loadDayClone() {
-  const raw = storageGet(DAY_CLONE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.data) return null;
-    return {
-      sourceDate: parsed.sourceDate || "",
-      data: copyEntryData(parsed.data),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function copyEntryData(entry) {
-  return {
-    start: entry.start || "",
-    end: entry.end || "",
-    type: entry.type || "Wolne",
-    status: normalizeStatus(entry.status),
-    tasks: normalizeTasks(entry.tasks),
-    cleaningTasks: normalizeCleaningSelection(entry.cleaningTasks || []),
-    cleaningDone: normalizeCleaningDone(entry.cleaningDone || [], entry.cleaningTasks || []),
-    recipeName: entry.recipeName || "",
-    meal: entry.meal || "",
-    shopping: entry.shopping || "",
-    shoppingCost: Number(entry.shoppingCost || 0),
-    notes: entry.notes || "",
-  };
 }
 
 function entryTotals(entry) {
