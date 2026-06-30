@@ -1393,8 +1393,7 @@ function subscribeRemoteState() {
         return;
       }
 
-      const shouldSaveShoppingAdvanceMigration =
-        !Array.isArray(remoteState.shoppingAdvances) || hasCollapsibleLegacyShoppingAdvances(remoteState.shoppingAdvances);
+      const shouldSaveShoppingAdvanceMigration = shouldRepairShoppingAdvances(remoteState);
       sync.applyingRemote = true;
       state = normalizeState(remoteState);
       storageSet(STORAGE_KEY, JSON.stringify(state));
@@ -1509,15 +1508,30 @@ function normalizeState(input) {
     shoppingCost: Number(entry.shoppingCost || 0),
     notes: entry.notes || "",
   }));
+  const shoppingAdvances = normalizeStateShoppingAdvances(input, settings, entries);
+  settings.shoppingAdvanceLedgerMigrated = true;
   return {
     settings,
     entries,
     recipes: normalizeRecipes(input.recipes || seed.recipes),
     payments: normalizePayments(input.payments || []),
-    shoppingAdvances: Array.isArray(input.shoppingAdvances)
-      ? normalizeShoppingAdvances(input.shoppingAdvances)
-      : buildLegacyShoppingAdvances(settings.shoppingAdvance, entries),
+    shoppingAdvances,
   };
+}
+
+function normalizeStateShoppingAdvances(input, settings, entries) {
+  if (!Array.isArray(input.shoppingAdvances)) {
+    return buildLegacyShoppingAdvances(settings.shoppingAdvance, entries);
+  }
+  const normalized = normalizeShoppingAdvances(input.shoppingAdvances);
+  if (
+    !normalized.length &&
+    input.settings?.shoppingAdvanceLedgerMigrated !== true &&
+    Number(settings.shoppingAdvance || 0) > 0
+  ) {
+    return buildLegacyShoppingAdvances(settings.shoppingAdvance, entries);
+  }
+  return normalized;
 }
 
 function normalizePayments(payments) {
@@ -1589,6 +1603,16 @@ function hasCollapsibleLegacyShoppingAdvances(advances) {
   if (!Array.isArray(advances)) return true;
   const legacy = advances.filter(isLegacyShoppingAdvance);
   return legacy.length > 1 || legacy.some((advance) => advance.id !== "shop-legacy-start");
+}
+
+function shouldRepairShoppingAdvances(remoteState) {
+  if (!Array.isArray(remoteState.shoppingAdvances)) return true;
+  if (hasCollapsibleLegacyShoppingAdvances(remoteState.shoppingAdvances)) return true;
+  return (
+    remoteState.shoppingAdvances.length === 0 &&
+    remoteState.settings?.shoppingAdvanceLedgerMigrated !== true &&
+    Number(remoteState.settings?.shoppingAdvance || 0) > 0
+  );
 }
 
 function normalizeTasks(tasks) {
@@ -1728,6 +1752,7 @@ function createSeedState() {
   const settings = {
     hourlyRate: 45,
     shoppingAdvance: 400,
+    shoppingAdvanceLedgerMigrated: true,
     tasks: defaultTasks,
     cleaningTasks: defaultCleaningTasks,
     cleaningCatalogVersion: CLEANING_CATALOG_VERSION,
@@ -2288,6 +2313,7 @@ function renderFinanse() {
   );
   const paidWorkPay = sumAmounts(monthAllocations.map((item) => item.amount));
   const shopping = monthEntries.reduce((sum, entry) => sum + Number(entry.shoppingCost || 0), 0);
+  const shoppingAvailable = shoppingSettlement.availableThisMonth;
   const extraShopping = shoppingSettlement.extraShopping;
   const transferDue = Math.max(workPay - settledWorkPay - paidWorkPay, 0) + extraShopping;
   return `
@@ -2312,6 +2338,7 @@ function renderFinanse() {
           <tr><td>Wpłaty przypisane do wizyt</td><td>${paidWorkPay ? `-${money(paidWorkPay)}` : money(0)}</td></tr>
           <tr><td>Saldo zakupowe z poprzednich miesięcy</td><td>${money(shoppingSettlement.openingBalance)}</td></tr>
           <tr><td>Zaliczki zakupowe w miesiącu</td><td>${money(shoppingSettlement.monthAdvance)}</td></tr>
+          <tr><td>Dostępne na zakupy w miesiącu</td><td>${money(shoppingAvailable)}</td></tr>
           <tr><td>Wydano na zakupy w miesiącu</td><td>${money(shopping)}</td></tr>
           <tr><td>Pozostało w kasie zakupowej</td><td>${money(shoppingSettlement.remainingShoppingBalance)}</td></tr>
           <tr><td>Dopłata za zakupy</td><td>${money(extraShopping)}</td></tr>
@@ -2809,6 +2836,7 @@ function bindPaymentControls(root) {
       const advance = (state.shoppingAdvances || []).find((item) => item.id === id);
       if (!advance) return;
       if (!window.confirm(`Usunąć zaliczkę zakupową z ${longDate(advance.date)} na ${money(advance.amount)}?`)) return;
+      state.settings.shoppingAdvanceLedgerMigrated = true;
       state.shoppingAdvances = normalizeShoppingAdvances(state.shoppingAdvances || []).filter((item) => item.id !== id);
       saveState();
       render();
@@ -2881,6 +2909,7 @@ function addShoppingAdvanceFromForm() {
     return;
   }
   const method = paymentMethods.includes(get("method")) ? get("method") : paymentMethods[0];
+  state.settings.shoppingAdvanceLedgerMigrated = true;
   state.shoppingAdvances = normalizeShoppingAdvances([
     ...(state.shoppingAdvances || []),
     {
@@ -3037,6 +3066,7 @@ function buildShoppingAdvanceSettlement(month = selectedMonth) {
   const openingBalance = roundMoneyAmount(advanceBefore - shoppingBefore);
   const monthAdvances = advances.filter((advance) => advance.date >= monthStart && advance.date < nextMonthStart);
   const monthAdvance = sumAmounts(monthAdvances.map((advance) => advance.amount));
+  const availableThisMonth = roundMoneyAmount(openingBalance + monthAdvance);
   const monthShopping = sumAmounts(
     state.entries
       .filter((entry) => entry.date >= monthStart && entry.date < nextMonthStart)
@@ -3048,6 +3078,7 @@ function buildShoppingAdvanceSettlement(month = selectedMonth) {
     monthAdvances,
     openingBalance,
     monthAdvance,
+    availableThisMonth,
     monthShopping,
     closingBalance,
     remainingShoppingBalance: Math.max(closingBalance, 0),
